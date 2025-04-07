@@ -1,0 +1,20 @@
+Make the data structure, to have functional server-based framework.
+Test it to make it easier evolve, since the data structure is unknown.
+
+Apps which I would like to build with first:
+
+- Role assuming auth application
+  As a user I would like to have access to some assets,
+  those assets can have a restricted policy to be used
+  with assigned a specific policy for the user before.
+  I would like to have the simple ability choose the
+  policy from the list and having it assumed - use the
+  asset needed.
+
+Specifics:
+Role can be assumed by sending a specific url encoded request
+from one service to another.
+I think it would be great to have the IAM service centralized.
+Each service wanted to get some access, could ask IAM to grant
+it. And the role can be provided to be assumed for the auth
+request after. Assumed role has to have limited availability time.
