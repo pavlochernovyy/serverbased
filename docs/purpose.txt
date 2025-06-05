@@ -1,5 +1,8 @@
+Beginning
+"
 Make the data structure, to have functional server-based framework.
 Test it to make it easier evolve, since the data structure is unknown.
+"
 
 Apps which I would like to build with first:
 
@@ -18,3 +21,21 @@ I think it would be great to have the IAM service centralized.
 Each service wanted to get some access, could ask IAM to grant
 it. And the role can be provided to be assumed for the auth
 request after. Assumed role has to have limited availability time.
+
+---
+
+Architecture
+"
+Having the framework to get an ability develop, package and test web artifact by the schema provided.
+"
+
+What need did I have recently to use such framework?
+Did I want to make some sort of deployment tool with testing abilities?
+What was the problematic?
+How do I see this framework to be useful for me?
+It can generate the postman tests?
+And when I do some app, it should make me the tests based on yml schema I provided for handlers I need?
+Right, so it's not about the deployment, it's more about the packaging and testing the artifact ready to be deployed, hence used right?
+I think so!..
+I do think so!..
+Cool stuff
