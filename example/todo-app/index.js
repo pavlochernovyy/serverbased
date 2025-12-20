@@ -7,6 +7,7 @@ const storage = {
 const handlerGetAllTodos = {
   route: '/todo',
   method: 'GET',
+  handlerType: 'context',
   run(context) {
     context
       .provideReply({
@@ -19,6 +20,7 @@ const handlerGetAllTodos = {
 const handlerFindOneTodo = {
   route: '/todo/:todoId',
   method: 'GET',
+  handlerType: 'context',
   run(context) {
     const { todoId } = context.fetchRequest().params;
     context
@@ -32,6 +34,7 @@ const handlerFindOneTodo = {
 const handlerSubmitOneTodo = {
   route: '/todo',
   method: 'POST',
+  handlerType: 'context',
   run(context) {
     const { id, title, description } = context.fetchRequest().body;
     const todoId = `${id}`;
@@ -48,6 +51,7 @@ const handlerSubmitOneTodo = {
 const handlerUpdateOneTodo = {
   route: '/todo',
   method: 'PUT',
+  handlerType: 'context',
   run(context) {
     const { id, title, description } = context.fetchRequest().body;
     storage.todos.set(`${id}`, { title, description });
@@ -58,6 +62,7 @@ const handlerUpdateOneTodo = {
 const handlerDeleteOneTodo = {
   route: '/todo/:todoId',
   method: 'DELETE',
+  handlerType: 'context',
   run(context) {
     const { todoId } = context.fetchRequest().params;
     storage.todos.delete(todoId);

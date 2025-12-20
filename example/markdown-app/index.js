@@ -10,6 +10,7 @@ const handlerGetQuote = {
       next();
     },
   },
+  handlerType: 'context',
   run(context) {
     const { title = 'not provided', text = 'not provided' } = context.fetchRequest().query;
     const data = jsonToMd([
@@ -22,9 +23,15 @@ const handlerGetQuote = {
   },
 };
 
+const cacheMarkdownData = (req, res, next) => {
+  console.log('in cacheMarkdownData');
+  next();
+};
+
 serverBased({
   title: 'quote making app',
   purpose: 'http api',
   version: '1.0',
   handlers: [handlerGetQuote],
+  middlewares: [cacheMarkdownData],
 }).run();
