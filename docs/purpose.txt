@@ -39,3 +39,47 @@ Right, so it's not about the deployment, it's more about the packaging and testi
 I think so!..
 I do think so!..
 Cool stuff
+
+
+---
+Deployment
+
+Can I make a tool called fast-line to easily deploy the app for my dashboard?
+Maybe in a container?
+To inspect how it works
+And turn on or off the features from there?
+Hmm, could be cool addon or a plugin I guess...
+
+
+---
+What to do next?
+Is there a matter?
+It's just about the process, I think
+
+
+---
+UI
+
+Do I need the UI part of the app?
+Why not to use swagger?
+How the deployment should process?
+Can I deploy besides the express?
+Do I need to?
+What that deployment could look like?
+Nestjs deploys on top of express though...
+Should it differ?
+I most probably need to have handler though...
+Handler is triggering by the server
+Can I deploy handlers on the fly?
+Like having a zip, I would like to upload it to the server, or just paste the function for example,
+and it should be able to invoke it?
+SO it could be like function invocation engine?
+For what purposes though?
+I can apply them on each other to interact with context?
+Like lambda functions do in aws?
+Hmm...
+I think it could make sense!..
+This is why we could have the functions UI
+okay, so for example we have a main handler, I want to apply more on it, how to do that?
+
+

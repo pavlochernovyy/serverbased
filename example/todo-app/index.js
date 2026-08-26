@@ -70,9 +70,38 @@ const handlerDeleteOneTodo = {
   },
 };
 
+const loggingMiddleware = {
+  run(req, res, next) {
+    console.log('in logging middleware', req.body);
+    const originalSend = res.send;
+    res.send = (body) => {
+      const data = {
+        ...body,
+        logs: 'submitted',
+      };
+
+      res.send = originalSend;
+      return res.send(data);
+    };
+
+    next();
+    console.log('after logging middleware');
+  },
+};
+
+const verifyingMiddleware = {
+  run(req, res, next) {
+    console.log('in verifying middleware', req.body);
+
+    next();
+    console.log('after verifying middleware');
+  },
+};
+
 serverBased({
   title: 'todo app',
   purpose: 'http api',
   version: '1.0',
+  middlewares: [loggingMiddleware.run, verifyingMiddleware.run],
   handlers: [handlerGetAllTodos, handlerFindOneTodo, handlerSubmitOneTodo, handlerUpdateOneTodo, handlerDeleteOneTodo],
 }).run();
