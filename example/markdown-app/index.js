@@ -28,10 +28,17 @@ const cacheMarkdownData = (req, res, next) => {
   next();
 };
 
-serverBased({
-  title: 'quote making app',
-  purpose: 'http api',
-  version: '1.0',
-  handlers: [handlerGetQuote],
-  middlewares: [cacheMarkdownData],
-}).run();
+const handlers = [handlerGetQuote];
+const middlewares = [cacheMarkdownData];
+
+if (require.main === module) {
+  serverBased({
+    title: 'quote making app',
+    purpose: 'http api',
+    version: '1.0',
+    handlers,
+    middlewares,
+  }).run();
+}
+
+module.exports = { handlers, middlewares };

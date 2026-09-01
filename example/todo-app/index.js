@@ -1,19 +1,16 @@
 const { serverBased } = require('../../lib/server-based');
 
-const storage = {
-  todos: new Map([['1', { title: 't #1', description: 'd #1' }]]),
-};
+const seedTodos = () => new Map([['1', { title: 't #1', description: 'd #1' }]]);
 
 const handlerGetAllTodos = {
   route: '/todo',
   method: 'GET',
   handlerType: 'context',
   run(context) {
-    context
-      .provideReply({
-        data: Object.fromEntries(storage.todos),
-      })
-      .send();
+    const todos = context.conductState('todos') || seedTodos();
+    context.provideState('todos', todos);
+
+    context.provideReply({ data: Object.fromEntries(todos) }).send();
   },
 };
 
@@ -23,11 +20,10 @@ const handlerFindOneTodo = {
   handlerType: 'context',
   run(context) {
     const { todoId } = context.fetchRequest().params;
-    context
-      .provideReply({
-        data: storage.todos.get(todoId) || {},
-      })
-      .send();
+    const todos = context.conductState('todos') || seedTodos();
+    context.provideState('todos', todos);
+
+    context.provideReply({ data: todos.get(todoId) || {} }).send();
   },
 };
 
@@ -37,8 +33,11 @@ const handlerSubmitOneTodo = {
   handlerType: 'context',
   run(context) {
     const { id, title, description } = context.fetchRequest().body;
+    const todos = context.conductState('todos') || seedTodos();
     const todoId = `${id}`;
-    const result = storage.todos.set(todoId, { title, description });
+    const result = todos.set(todoId, { title, description });
+    context.provideState('todos', todos);
+
     const posted = result.has(todoId);
     context
       .provideReply({
@@ -54,7 +53,10 @@ const handlerUpdateOneTodo = {
   handlerType: 'context',
   run(context) {
     const { id, title, description } = context.fetchRequest().body;
-    storage.todos.set(`${id}`, { title, description });
+    const todos = context.conductState('todos') || seedTodos();
+    todos.set(`${id}`, { title, description });
+    context.provideState('todos', todos);
+
     context.provideReply({ message: 'success' }).send();
   },
 };
@@ -65,8 +67,11 @@ const handlerDeleteOneTodo = {
   handlerType: 'context',
   run(context) {
     const { todoId } = context.fetchRequest().params;
-    storage.todos.delete(todoId);
-    context.provideReply({ message: 'success', data: Object.fromEntries(storage.todos) }).send();
+    const todos = context.conductState('todos') || seedTodos();
+    todos.delete(todoId);
+    context.provideState('todos', todos);
+
+    context.provideReply({ message: 'success', data: Object.fromEntries(todos) }).send();
   },
 };
 
@@ -98,10 +103,23 @@ const verifyingMiddleware = {
   },
 };
 
-serverBased({
-  title: 'todo app',
-  purpose: 'http api',
-  version: '1.0',
-  middlewares: [loggingMiddleware.run, verifyingMiddleware.run],
-  handlers: [handlerGetAllTodos, handlerFindOneTodo, handlerSubmitOneTodo, handlerUpdateOneTodo, handlerDeleteOneTodo],
-}).run();
+const handlers = [
+  handlerGetAllTodos,
+  handlerFindOneTodo,
+  handlerSubmitOneTodo,
+  handlerUpdateOneTodo,
+  handlerDeleteOneTodo,
+];
+const middlewares = [loggingMiddleware.run, verifyingMiddleware.run];
+
+if (require.main === module) {
+  serverBased({
+    title: 'todo app',
+    purpose: 'http api',
+    version: '1.0',
+    middlewares,
+    handlers,
+  }).run();
+}
+
+module.exports = { handlers, middlewares };
