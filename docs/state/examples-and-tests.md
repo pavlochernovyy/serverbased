@@ -7,8 +7,10 @@
 - `example/todo-app` — full CRUD via `provideState`/`conductState` (seeded lazily with `seedTodos()`), demonstrates global middlewares (logging that rewrites `res.send` for object bodies only, a pass-through "verifying" middleware) and route params (`/todo/:todoId`). Exports `{ handlers, middlewares }` and only auto-runs when executed directly (`require.main === module`).
 - `example/blog-app` — full CRUD via `provideState`/`conductState` (seeded lazily with `seedPosts()`), plus a per-post view counter under a separate state key (`views:<postId>`). Same export/auto-run pattern.
 - `example/markdown-app` — single GET handler that renders markdown via `json2md` from query params, demonstrates per-handler middleware. Same export/auto-run pattern.
+- `example/mini-store` — a shopping-cart API demonstrating the plugin system (see [context-provider.md](../api/context-provider.md#plugins)): `CartPlugin` (`example/mini-store/cart.plugin.js`) keeps per-cart item state under its own `cart` name, and `SalePlugin` (`example/mini-store/sale.plugin.js`) is a second, decoupled plugin computing a checkout total with a 10%-off bulk discount for carts with more than 5 items. Exports `{ handlers, plugins }`.
 - `example/combined-2-apps` — composes `todo-app` + `blog-app` via `composeModules`, run as one server, to demonstrate extending a running app with another feature module without touching either module's own code.
 - `example/combined-3-apps` — same idea, one more module (`todo-app` + `blog-app` + `markdown-app`), demonstrating that adding an Nth module costs nothing extra to wire up.
+- `example/combined-mini-store-blog` — composes `blog-app` (relies on the framework's default `store` plugin) with `mini-store` (its own named `cart`/`sale` plugins), demonstrating that `composeModules` merges `plugins` the same way it merges `handlers`/`middlewares`, and that named plugins coexist with the default `store` plugin without colliding.
 
 ## Tests
 
@@ -17,7 +19,8 @@
 - `context.provider.test.js` — asserts `ContextProvider` methods are bound and chainable inside a running handler.
 - `handler.test.js` — asserts `toHandler` normalizes and validates a handler config (via `createSampleHandler` from `test-fixtures.js`).
 - `compose.test.js` — asserts `composeModules` merges handlers/middlewares in order, tolerates a module with no middlewares, treats the same route as distinct per HTTP method, and throws `ComposeError` on a duplicate method+route across modules.
-- `example/todo-app/todo-app.test.js`, `example/blog-app/blog-app.test.js`, `example/markdown-app/markdown-app.test.js` — API-level tests per example app, real-server/`closeAsync()` pattern.
+- `example/todo-app/todo-app.test.js`, `example/blog-app/blog-app.test.js`, `example/markdown-app/markdown-app.test.js`, `example/mini-store/mini-store.test.js` — API-level tests per example app, real-server/`closeAsync()` pattern. `mini-store.test.js` also asserts per-`cartId` isolation within one server and that a fresh `CartPlugin` instance is created per `run()` call (no state leak across server instances).
 - `example/combined-2-apps/combined-2-apps.test.js` — asserts both composed apps' routes work off one server, and that one module's state writes don't affect the other's.
 - `example/combined-3-apps/combined-3-apps.test.js` — same, across three composed modules including a plain-text (non-JSON) response from `markdown-app`, which exercises the `res.send` fix in `example/todo-app`.
+- `example/combined-mini-store-blog/combined-mini-store-blog.test.js` — asserts blog-app's default-`store`-backed state and mini-store's named `cart`/`sale` plugins coexist on one composed server without colliding, and that the `sale` plugin's bulk discount still works once composed.
 - No test currently exercises a `HandlerError`/`ServerBasedError` being thrown during setup, or an async rejection from an `origin`-type handler (known unhandled gap, see [core.md](./core.md)).
