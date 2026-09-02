@@ -1,5 +1,6 @@
 const { serverBased } = require('../../lib/server-based');
 const { CartPlugin } = require('./cart.plugin');
+const { SalePlugin } = require('./sale.plugin');
 
 const handlerGetCart = {
   route: '/cart/:cartId',
@@ -48,8 +49,23 @@ const handlerClearCart = {
   },
 };
 
-const handlers = [handlerGetCart, handlerAddItem, handlerRemoveItem, handlerClearCart];
-const plugins = [{ name: 'cart', plugin: CartPlugin }];
+const handlerCheckoutCart = {
+  route: '/cart/:cartId/checkout',
+  method: 'GET',
+  handlerType: 'context',
+  run(context) {
+    const { cartId } = context.fetchRequest().params;
+    const items = context.cart.getItems(cartId);
+
+    context.provideReply({ data: context.sale.calculateTotal(items) }).send();
+  },
+};
+
+const handlers = [handlerGetCart, handlerAddItem, handlerRemoveItem, handlerClearCart, handlerCheckoutCart];
+const plugins = [
+  { name: 'cart', plugin: CartPlugin },
+  { name: 'sale', plugin: SalePlugin },
+];
 
 if (require.main === module) {
   serverBased({
@@ -58,9 +74,7 @@ if (require.main === module) {
     version: '1.0',
     handlers,
     plugins,
-  })
-    .run()
-    .catch(console.error);
+  }).run();
 }
 
 module.exports = { handlers, plugins };

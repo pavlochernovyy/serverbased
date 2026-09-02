@@ -23,7 +23,7 @@ const startMiniStoreApp = (port) =>
   }).run();
 
 test('GET /cart/:cartId on an untouched cart returns no items', async () => {
-  const port = 8601;
+  const port = 8701;
   const server = await startMiniStoreApp(port);
 
   const response = await fetch(port).get('/cart/cart-1');
@@ -35,7 +35,7 @@ test('GET /cart/:cartId on an untouched cart returns no items', async () => {
 });
 
 test('POST /cart/:cartId/items adds an item, then GET reflects it', async () => {
-  const port = 8602;
+  const port = 8702;
   const server = await startMiniStoreApp(port);
 
   const posted = await fetch(port).post('/cart/cart-1/items', { id: 1, name: 'mug', price: 10, qty: 2 });
@@ -50,7 +50,7 @@ test('POST /cart/:cartId/items adds an item, then GET reflects it', async () => 
 });
 
 test('DELETE /cart/:cartId/items/:itemId removes one item', async () => {
-  const port = 8603;
+  const port = 8703;
   const server = await startMiniStoreApp(port);
 
   await fetch(port).post('/cart/cart-1/items', { id: 1, name: 'mug', price: 10, qty: 1 });
@@ -64,7 +64,7 @@ test('DELETE /cart/:cartId/items/:itemId removes one item', async () => {
 });
 
 test('DELETE /cart/:cartId clears the whole cart', async () => {
-  const port = 8604;
+  const port = 8704;
   const server = await startMiniStoreApp(port);
 
   await fetch(port).post('/cart/cart-1/items', { id: 1, name: 'mug', price: 10, qty: 1 });
@@ -80,7 +80,7 @@ test('DELETE /cart/:cartId clears the whole cart', async () => {
 });
 
 test('keeps items isolated per cartId within the same server', async () => {
-  const port = 8605;
+  const port = 8705;
   const server = await startMiniStoreApp(port);
 
   await fetch(port).post('/cart/cart-a/items', { id: 1, name: 'mug', price: 10, qty: 1 });
@@ -96,8 +96,8 @@ test('keeps items isolated per cartId within the same server', async () => {
 });
 
 test('each run() gets its own CartPlugin instance — no state leaks across server instances', async () => {
-  const portOne = 8606;
-  const portTwo = 8607;
+  const portOne = 8706;
+  const portTwo = 8707;
   const serverOne = await startMiniStoreApp(portOne);
   const serverTwo = await startMiniStoreApp(portTwo);
 
@@ -111,4 +111,61 @@ test('each run() gets its own CartPlugin instance — no state leaks across serv
 
   await serverOne.closeAsync();
   await serverTwo.closeAsync();
+});
+
+test('GET /cart/:cartId/checkout on an empty cart has no discount', async () => {
+  const port = 8708;
+  const server = await startMiniStoreApp(port);
+
+  const response = await fetch(port).get('/cart/cart-1/checkout');
+
+  expect(response.status).toBe(200);
+  expect(response.data.data).toEqual({
+    itemCount: 0,
+    subtotal: 0,
+    discount: 0,
+    total: 0,
+    bulkDiscountApplied: false,
+  });
+
+  await server.closeAsync();
+});
+
+test('GET /cart/:cartId/checkout applies no discount for 5 items or fewer', async () => {
+  const port = 8709;
+  const server = await startMiniStoreApp(port);
+
+  await fetch(port).post('/cart/cart-1/items', { id: 1, name: 'mug', price: 10, qty: 5 });
+
+  const response = await fetch(port).get('/cart/cart-1/checkout');
+
+  expect(response.data.data).toEqual({
+    itemCount: 5,
+    subtotal: 50,
+    discount: 0,
+    total: 50,
+    bulkDiscountApplied: false,
+  });
+
+  await server.closeAsync();
+});
+
+test('GET /cart/:cartId/checkout applies a bulk discount for more than 5 items', async () => {
+  const port = 8710;
+  const server = await startMiniStoreApp(port);
+
+  await fetch(port).post('/cart/cart-1/items', { id: 1, name: 'mug', price: 10, qty: 3 });
+  await fetch(port).post('/cart/cart-1/items', { id: 2, name: 'plate', price: 5, qty: 3 });
+
+  const response = await fetch(port).get('/cart/cart-1/checkout');
+
+  expect(response.data.data).toEqual({
+    itemCount: 6,
+    subtotal: 45,
+    discount: 4.5,
+    total: 40.5,
+    bulkDiscountApplied: true,
+  });
+
+  await server.closeAsync();
 });
