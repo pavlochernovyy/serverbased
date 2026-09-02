@@ -20,6 +20,7 @@ Creates a server entity. Does not start listening — call `.run()` on the resul
 | `endpointType`   | `string`   | no       | `'server'`             | accepted values: `'server'`, `'client'`. **Not branched on in `run()` today** — has no observable effect |
 | `handlers`       | `array`    | no       | `{}`                    | array of handler configs, see below |
 | `middlewares`    | `array`    | no       | `[]`                    | array of Express middleware functions `(req, res, next) => void`, applied globally in order, before any handler |
+| `plugins`        | `array`    | no       | `[]`                    | array of plugin descriptors `{ name, plugin }`, see [Plugins](#plugins) below |
 
 ### return value
 
@@ -29,6 +30,15 @@ An object exposing the resolved config plus:
   - `closeAsync()` — `Promise<void>`, wraps `server.close()`, added for convenient teardown (used throughout the test suite).
 
 Also logs a metadata block (`title`, `purpose`, `version`, `handlers`) to console on `run()`, and one line per incoming request (`"<method> <route> invoked"`).
+
+## `toPlugin(pluginConfig)`
+
+Normalizes and validates a raw plugin descriptor. Called internally by `run()` for every entry in `plugins`; also exported for direct use/testing.
+
+| field    | type       | required | notes |
+|----------|------------|----------|-------|
+| `name`   | `string`   | yes      | key the plugin instance is exposed under on `context`. Throws `ServerBasedError` if missing |
+| `plugin` | `function` | yes      | plugin class, instantiated fresh per `run()` call. Throws `ServerBasedError` if missing |
 
 ## `toHandler(handlerConfig)`
 
@@ -108,6 +118,40 @@ serverBased({
 ```
 
 Per-handler middleware follows the same `(req, res, next)` shape, wrapped in `{ run }` and attached to a single handler via its `middleware` field (see `handlerConfig` above) — it runs after global `middlewares`, only for that route.
+
+## Plugins
+
+`plugins` is an array of `{ name, plugin }` descriptors, where `plugin` is a **class**, not an instance — `run()` instantiates every plugin fresh on each call (`new plugin()`), so separate app instances (different apps, or different test servers started from the same config) never share plugin state. Each instance is exposed on every `context`-type handler's `ContextProvider` under `name`, see [context-provider.md](./context-provider.md#plugins):
+
+```js
+class GreeterPlugin {
+  greet(name) {
+    return `hello, ${name}`;
+  }
+}
+
+const handlerGreet = {
+  route: '/greet/:name',
+  method: 'GET',
+  handlerType: 'context',
+  run(context) {
+    const { name } = context.fetchRequest().params;
+    context.provideReply({ message: context.greeter.greet(name) }).send();
+  },
+};
+
+serverBased({
+  title: 'ping service',
+  purpose: 'http api',
+  version: '1.0',
+  handlers: [handlerGreet],
+  plugins: [{ name: 'greeter', plugin: GreeterPlugin }],
+}).run();
+```
+
+Throws `ServerBasedError` if two plugin descriptors share the same `name`, or if a descriptor is missing `name`/`plugin` (validated by `toPlugin`, see below).
+
+A default plugin named `store` (a plain `Map`, see `lib/plugins/state-store.plugin.js`) is auto-appended when no `store`-named plugin is supplied — this is what backs `context.provideState`/`conductState` (see [context-provider.md](./context-provider.md#state-providestateconductstate)). Supply your own `{ name: 'store', plugin: MyStoreClass }` to override it.
 
 ## Operating without a context (`handlerType: 'origin'`)
 
