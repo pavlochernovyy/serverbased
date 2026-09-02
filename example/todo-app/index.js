@@ -80,10 +80,10 @@ const loggingMiddleware = {
     console.log('in logging middleware', req.body);
     const originalSend = res.send;
     res.send = (body) => {
-      const data = {
-        ...body,
-        logs: 'submitted',
-      };
+      // only tag plain-object bodies — spreading a string/array/etc. here would mangle it
+      // (e.g. a markdown string composed in from another module) instead of tagging it
+      const isPlainObject = body !== null && typeof body === 'object' && !Array.isArray(body);
+      const data = isPlainObject ? { ...body, logs: 'submitted' } : body;
 
       res.send = originalSend;
       return res.send(data);

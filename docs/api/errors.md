@@ -1,0 +1,26 @@
+# Errors
+
+← [index](./README.md) · see also [server-based](./server-based.md), [compose](./compose.md) (`ComposeError`)
+
+| class            | extends            | thrown when |
+|-------------------|--------------------|-------------|
+| `ServerBasedError` | `Error`            | missing `title`/`purpose`/`version`, or unsupported `networkProtocol` |
+| `HandlerError`      | `ServerBasedError` | missing `route`/`method`/`run`/`handlerType` on a handler config |
+| `RuntimeError`      | `ServerBasedError` | not thrown internally — a convenience class for handlers to throw with an explicit `statusCode` (default `500`), e.g. `throw new RuntimeError('post not found', 404)` |
+| `ComposeError`      | `ServerBasedError` | two modules passed to `composeModules` register the same `method` + `route` — see [compose.md](./compose.md) |
+
+`serverBased`, `toHandler`, `defaults`, `ServerBasedError`, `HandlerError`, `RuntimeError` are all exported from `lib/server-based.js`. `composeModules`, `ComposeError` are exported from `lib/compose.js`.
+
+`ServerBasedError`/`HandlerError`/`ComposeError` are only thrown during config/handler/composition setup (synchronously, before `run()` starts listening).
+
+## `runtimeErrorHandlingMiddleware`
+
+Registered via `app.use(runtimeErrorHandlingMiddleware)` after all handlers, as the last middleware in the chain — Express's standard error-handling middleware signature `(err, req, res, next)`. Any error passed to `next(error)` (including body-parser failures like malformed JSON, and errors thrown/rejected inside `context`-type handlers) is caught here:
+
+- if `res.headersSent`, delegates to Express's default handler via `next(err)`.
+- logs `"<method> <url> failed:"` plus the error via `console.info`.
+- responds with `res.status(err.statusCode || 500).send({ message, name })`, where `message` falls back to `'internal server error'` and `name` falls back to `RuntimeError.name`.
+
+Not exported — internal to `serverBased.run()`. `RuntimeError`'s `statusCode`/`name` fields flow straight through to the response; a plain `Error` yields `{ statusCode: 500, name: 'Error' }` since neither field exists on it beyond the built-in `.name`.
+
+Runtime errors from `origin`-type handlers reach this middleware only for **synchronous** throws (Express's own behavior) — async rejections from `origin` handlers are not routed here (see [server-based.md](./server-based.md) `handlerType` note).

@@ -1,13 +1,6 @@
-# server-based — API reference
+# `serverBased` / `toHandler`
 
-`server-based` turns a declarative config object into a running Express server.
-Source: `lib/server-based.js`, `lib/context.provider.js`.
-
-```js
-const { serverBased } = require('./lib/server-based');
-
-serverBased({ title, purpose, version, handlers: [...] }).run();
-```
+← [index](./README.md) · see also [errors](./errors.md), [context-provider](./context-provider.md), [compose](./compose.md)
 
 ## `serverBased(config)`
 
@@ -53,79 +46,8 @@ Normalizes and validates a raw handler object into the shape `serverBased` regis
 
 ### `handlerType`
 
-- **`'context'`** — `run` is called as `run(context)` (async allowed). `context` is a `ContextProvider` instance wrapping the current `req`/`res` (see below). Errors thrown or rejected inside `run` are passed to `next(error)`, which reaches `runtimeErrorHandlingMiddleware` (see Errors below).
+- **`'context'`** — `run` is called as `run(context)` (async allowed). `context` is a `ContextProvider` instance wrapping the current `req`/`res` — see [context-provider.md](./context-provider.md). Errors thrown or rejected inside `run` are passed to `next(error)`, which reaches `runtimeErrorHandlingMiddleware` (see [errors.md](./errors.md)).
 - **`'origin'`** — `run` is called as `run(req, res)` with the raw Express request/response. No wrapping. Synchronous throws are still caught by Express itself and reach `runtimeErrorHandlingMiddleware`; a **rejected promise from an `async run` is not awaited or caught** — it is not routed to the error middleware (deliberate scope call: error-handling safety currently targets the `context` path only, see `docs/current-process.txt`).
-
-## `ContextProvider` (`lib/context.provider.js`)
-
-Instantiated per-request for `handlerType: 'context'` handlers, passed as the `context` argument.
-
-| method                          | returns             | description |
-|----------------------------------|---------------------|--------------|
-| `fetchRequest()`                 | Express `req`       | raw request object — use for `.body`, `.query`, `.params`, `.headers`, etc. |
-| `fetchParamsInt(scopeToInt?)`    | `object`             | route params (`req.params`); if `scopeToInt` (array of key names) is given, those keys are parsed with `parseInt(value, 10)`, all other keys passed through as strings. Omit `scopeToInt` to get raw string params |
-| `provideReply(data)`             | `this` (chainable)   | stages `data` as the reply payload |
-| `send()`                         | `void`               | sends the staged reply via `res.send()`, default status `200` |
-| `sendWithCode(code)`             | `void`               | sends the staged reply via `res.status(code).send()` |
-| `provideState(key, value)`       | `this` (chainable)   | writes `value` under `key` into the app's shared `stateStore` (a `Map`) |
-| `conductState(key)`              | `any`                | reads `value` back for `key` from the shared `stateStore`; `undefined` if never set |
-
-Typical handler:
-
-```js
-run(context) {
-  const { postId } = context.fetchRequest().params;
-  const post = storage.posts.get(postId);
-  if (!post) {
-    context.provideReply({ message: 'not found' }).sendWithCode(404);
-    return;
-  }
-  context.provideReply({ data: post }).send();
-}
-```
-
-### State (`provideState`/`conductState`)
-
-`serverBased.run()` creates one `stateStore` (a plain `Map`) per app instance and passes it into every `context`-type handler's `ContextProvider` (see `stateStore` in `server-based.js`). This makes `provideState`/`conductState` a lightweight, app-scoped key/value store, shared by every handler and every request of that app instance — but isolated from any other `serverBased()` instance (e.g. different apps, or different test servers).
-
-There's no built-in seeding — reading a key that was never set returns `undefined`, so handlers typically seed lazily on first access:
-
-```js
-const seedPosts = () => new Map([['1', { title: 'first post' }]]);
-
-run(context) {
-  const posts = context.conductState('posts') || seedPosts();
-  context.provideState('posts', posts);
-
-  context.provideReply({ data: Object.fromEntries(posts) }).send();
-}
-```
-
-It's a generic in-memory scratch store, not a persistence layer — nothing survives a process restart. See `example/blog-app` (post storage plus a per-post view counter) and `example/todo-app` for it in use, and `lib/server-based.test.js` ("shares provideState/conductState across requests and handlers") for a minimal, storage-free demonstration.
-
-## Errors
-
-| class            | extends            | thrown when |
-|-------------------|--------------------|-------------|
-| `ServerBasedError` | `Error`            | missing `title`/`purpose`/`version`, or unsupported `networkProtocol` |
-| `HandlerError`      | `ServerBasedError` | missing `route`/`method`/`run`/`handlerType` on a handler config |
-| `RuntimeError`      | `ServerBasedError` | not thrown internally — a convenience class for handlers to throw with an explicit `statusCode` (default `500`), e.g. `throw new RuntimeError('post not found', 404)` |
-
-`serverBased`, `toHandler`, `defaults`, `ServerBasedError`, `HandlerError`, `RuntimeError` are all exported from `lib/server-based.js`.
-
-`ServerBasedError`/`HandlerError` are only thrown during config/handler setup (synchronously, before `run()` starts listening).
-
-### `runtimeErrorHandlingMiddleware`
-
-Registered via `app.use(runtimeErrorHandlingMiddleware)` after all handlers, as the last middleware in the chain — Express's standard error-handling middleware signature `(err, req, res, next)`. Any error passed to `next(error)` (including body-parser failures like malformed JSON, and errors thrown/rejected inside `context`-type handlers) is caught here:
-
-- if `res.headersSent`, delegates to Express's default handler via `next(err)`.
-- logs `"<method> <url> failed:"` plus the error via `console.info`.
-- responds with `res.status(err.statusCode || 500).send({ message, name })`, where `message` falls back to `'internal server error'` and `name` falls back to `RuntimeError.name`.
-
-Not exported — internal to `serverBased.run()`. `RuntimeError`'s `statusCode`/`name` fields flow straight through to the response; a plain `Error` yields `{ statusCode: 500, name: 'Error' }` since neither field exists on it beyond the built-in `.name`.
-
-Runtime errors from `origin`-type handlers reach this middleware only for **synchronous** throws (Express's own behavior) — async rejections from `origin` handlers are not routed here (see `handlerType` note above).
 
 ## `defaults` export
 
@@ -209,6 +131,6 @@ serverBased({
 }).run();
 ```
 
-See `lib/server-based.test.js` ("server-based can register handlers with context or origin type") for a side-by-side `context` vs `origin` handler on the same server. Remember: only synchronous throws from an `origin` handler reach `runtimeErrorHandlingMiddleware` (see `handlerType` above) — an `async run(req, res)` that rejects is not caught.
+See `lib/server-based.test.js` ("server-based can register handlers with context or origin type") for a side-by-side `context` vs `origin` handler on the same server. Remember: only synchronous throws from an `origin` handler reach `runtimeErrorHandlingMiddleware` — an `async run(req, res)` that rejects is not caught.
 
 See `example/todo-app`, `example/markdown-app`, `example/blog-app` for fuller usage (global/per-handler middleware, route params, `origin`-type handlers, request body/query handling).
