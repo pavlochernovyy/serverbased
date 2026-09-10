@@ -1,0 +1,12 @@
+{
+  "functions": {
+    "projects": {
+      "path": "./functions/projects.js",
+      "route": "/projects"
+    },
+    "reports": {
+      "path": "./functions/reports.js",
+      "route": "/reports"
+    }
+  }
+}

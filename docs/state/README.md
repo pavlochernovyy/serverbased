@@ -9,7 +9,8 @@ and behavior be attached onto the request context under a name (`context.<name>`
 default `store` plugin (a `Map`) auto-injected for backward compatibility with
 `provideState`/`conductState`. A composition helper (`composeModules`, `lib/compose.js`)
 lets independently-authored feature modules (each `{ handlers, middlewares?, plugins? }`)
-be merged into one app.
+be merged into one app. A function registry (`configPath` + `lib/function-registry-config.js`)
+mounts feature modules listed in a `serverbased.json` file, read once at startup.
 
 ## Sections
 

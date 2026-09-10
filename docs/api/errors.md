@@ -4,12 +4,13 @@
 
 | class            | extends            | thrown when |
 |-------------------|--------------------|-------------|
-| `ServerBasedError` | `Error`            | missing `title`/`purpose`/`version`, unsupported `networkProtocol`, missing `name`/`plugin` on a plugin descriptor (via `toPlugin`), or two plugins registered with the same `name` in one `serverBased()` config |
+| `ServerBasedError` | `Error`            | missing `title`/`purpose`/`version`, unsupported `networkProtocol`, missing `name`/`plugin` on a plugin descriptor (via `toPlugin`), two plugins registered with the same `name` in one `serverBased()` config, a duplicate `method`+`route` among the app's own `handlers`, or a function's `route` (from `configPath`) colliding with a host handler's route |
 | `HandlerError`      | `ServerBasedError` | missing `route`/`method`/`run`/`handlerType` on a handler config |
 | `RuntimeError`      | `ServerBasedError` | not thrown internally — a convenience class for handlers to throw with an explicit `statusCode` (default `500`), e.g. `throw new RuntimeError('post not found', 404)` |
 | `ComposeError`      | `ServerBasedError` | two modules passed to `composeModules` register the same `method` + `route`, or the same plugin `name` — see [compose.md](./compose.md) |
+| `FunctionRegistryError` | `ServerBasedError` | a `serverbased.json` function entry is missing `path`/`route`, its `path` fails to `require`, two functions share a `route`, or a duplicate `method`+`route` within one function's own `handlers` — see [server-based.md#function-registry-configpath](./server-based.md#function-registry-configpath) |
 
-`serverBased`, `toHandler`, `toPlugin`, `defaults`, `ServerBasedError`, `HandlerError`, `RuntimeError` are all exported from `lib/server-based.js`. `composeModules`, `ComposeError` are exported from `lib/compose.js`.
+`serverBased`, `toHandler`, `toPlugin`, `assertNoDuplicateRoutes`, `defaults`, `ServerBasedError`, `HandlerError`, `RuntimeError` are all exported from `lib/server-based.js`. `composeModules`, `ComposeError` are exported from `lib/compose.js`. `loadFunctionRegistryConfig`, `FunctionRegistryError` are exported from `lib/function-registry-config.js`.
 
 `ServerBasedError`/`HandlerError`/`ComposeError` are only thrown during config/handler/composition setup (synchronously, before `run()` starts listening). Note the exact timing differs slightly: `title`/`purpose`/`version`/`networkProtocol` are validated when `serverBased(config)` is called; `handlers` (`toHandler`) and `plugins` (`toPlugin`, plus the duplicate-name check) are validated inside `run()`, still before the server starts listening but one call later than the others.
 

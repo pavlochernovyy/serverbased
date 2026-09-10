@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "greeter": {
+      "path": "./functions/greet.js",
+      "route": "/greeter"
+    }
+  }
+}

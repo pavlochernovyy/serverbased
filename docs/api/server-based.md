@@ -18,9 +18,10 @@ Creates a server entity. Does not start listening — call `.run()` on the resul
 | `networkProtocol`| `string`   | no       | `'http'`               | only `'http'` is supported; any other value throws `ServerBasedError` |
 | `routerEngine`   | `string`   | no       | `'express'`            | accepted value: `'express'`. **Not branched on** — Express is used unconditionally regardless of this field |
 | `endpointType`   | `string`   | no       | `'server'`             | accepted values: `'server'`, `'client'`. **Not branched on in `run()` today** — has no observable effect |
-| `handlers`       | `array`    | no       | `{}`                    | array of handler configs, see below |
+| `handlers`       | `array`    | no       | `[]`                    | array of handler configs, see below. Throws `ServerBasedError` if two handlers register the same `method`+`route` (via `assertNoDuplicateRoutes`, see below) |
 | `middlewares`    | `array`    | no       | `[]`                    | array of Express middleware functions `(req, res, next) => void`, applied globally in order, before any handler |
 | `plugins`        | `array`    | no       | `[]`                    | array of plugin descriptors `{ name, plugin }`, see [Plugins](#plugins) below |
+| `configPath`     | `string`   | no       | `undefined`             | path to a `serverbased.json` function-registry config, see [Function registry](#function-registry-configpath) below |
 
 ### return value
 
@@ -58,6 +59,10 @@ Normalizes and validates a raw handler object into the shape `serverBased` regis
 
 - **`'context'`** — `run` is called as `run(context)` (async allowed). `context` is a `ContextProvider` instance wrapping the current `req`/`res` — see [context-provider.md](./context-provider.md). Errors thrown or rejected inside `run` are passed to `next(error)`, which reaches `runtimeErrorHandlingMiddleware` (see [errors.md](./errors.md)).
 - **`'origin'`** — `run` is called as `run(req, res)` with the raw Express request/response. No wrapping. Synchronous throws are still caught by Express itself and reach `runtimeErrorHandlingMiddleware`; a **rejected promise from an `async run` is not awaited or caught** — it is not routed to the error middleware (deliberate scope call: error-handling safety currently targets the `context` path only, see `docs/current-process.txt`).
+
+## `assertNoDuplicateRoutes(handlers, formatError)`
+
+Throws `formatError(routeKey)` (a caller-supplied factory, e.g. `(routeKey) => new ServerBasedError(...)`) on the first repeated `"<method> <route>"` key found in `handlers`. Used internally by `run()` for the app's own top-level `handlers`, and by `loadFunctionRegistryConfig` for each function's own `handlers` — the single implementation both the host app and every function's duplicate-route check share. Exported for direct use/testing.
 
 ## `defaults` export
 
@@ -178,3 +183,34 @@ serverBased({
 See `lib/server-based.test.js` ("server-based can register handlers with context or origin type") for a side-by-side `context` vs `origin` handler on the same server. Remember: only synchronous throws from an `origin` handler reach `runtimeErrorHandlingMiddleware` — an `async run(req, res)` that rejects is not caught.
 
 See `example/todo-app`, `example/markdown-app`, `example/blog-app` for fuller usage (global/per-handler middleware, route params, `origin`-type handlers, request body/query handling).
+
+## Function registry (`configPath`)
+
+`configPath` points `run()` at a `serverbased.json` file listing independently-authored "functions" — each shaped like a regular feature module (`{ handlers, middlewares?, plugins? }`, same as what `composeModules` consumes) — to be mounted alongside the app's own `handlers`. Loaded via `lib/function-registry-config.js` (`loadFunctionRegistryConfig`), a small module kept separate from `server-based.js` the same way `compose.js` is.
+
+Read **once**, at startup, inside `run()` — no filesystem watching, no runtime add/remove/enable/disable. Adding, removing, or editing a function means editing `serverbased.json` and restarting the process.
+
+```json
+{
+  "functions": {
+    "greeter": {
+      "path": "./functions/greet.js",
+      "route": "/greeter"
+    }
+  }
+}
+```
+
+- `path` — resolved relative to the location of `serverbased.json` itself (not `process.cwd()`), then `require`d.
+- `route` — mount prefix for that function's own routes: a handler registered at `GET /hello/:name` inside `greet.js` becomes reachable at `GET /greeter/hello/:name`.
+- Each function gets its own `express.Router()`, its own fresh plugin instances (same instantiate-per-`run()` semantics as the app's own `plugins`), and its own middleware, applied only within that function's mount — isolated from the host app and from other functions. This includes the default `store` plugin: a function that doesn't declare its own `store`-named plugin gets one auto-appended, exactly like the host app's own `handlers` do — its own fresh `Map`, so `provideState`/`conductState` inside a function's handlers work unchanged, but never share state with the host's or another function's store. A function that needs another function's data calls that function's own route over HTTP rather than reaching into its store — see `example/time-tracking-app/functions/reports.js`.
+
+Omitting `configPath` leaves `run()`'s behavior identical to before this feature existed.
+
+### Failure/collision handling — fails fast at startup, same posture as `compose.js`'s duplicate-route check
+
+- `configPath` given but the file doesn't exist, or `functions` is empty/absent — not an error: one `console.log` line, zero functions mounted, boot continues normally.
+- A function entry missing `path` or `route`, a `path` that fails to `require`, or a function's own `handlers` containing a duplicate method+route — throws `FunctionRegistryError` (extends `ServerBasedError`) before `app.listen`.
+- Two functions sharing the same `route`, or a function's `route` colliding with one of the host app's own handler routes — throws `ServerBasedError` before `app.listen`.
+
+See `example/function-registry` for a full working example, and `lib/function-registry-config.test.js` for the loader's fail-fast cases.
