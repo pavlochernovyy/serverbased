@@ -17,7 +17,12 @@ if (require.main === module) {
     middlewares,
     handlers,
     plugins,
-  }).run();
+  })
+    .run()
+    .catch((error) => {
+      console.error('combined blog + mini-store failed to start:', error.message);
+      process.exit(1);
+    });
 }
 
 module.exports = { handlers, middlewares, plugins };

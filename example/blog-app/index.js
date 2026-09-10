@@ -128,7 +128,12 @@ if (require.main === module) {
     version: '1.0',
     middlewares,
     handlers,
-  }).run();
+  })
+    .run()
+    .catch((error) => {
+      console.error('blog app failed to start:', error.message);
+      process.exit(1);
+    });
 }
 
 module.exports = { handlers, middlewares };

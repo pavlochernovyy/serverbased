@@ -26,7 +26,7 @@ Creates a server entity. Does not start listening — call `.run()` on the resul
 
 An object exposing the resolved config plus:
 
-- `run()` — starts the Express server. Returns a `Promise<http.Server>` that resolves once the server is listening. The resolved server has:
+- `run()` — starts the Express server. Returns a `Promise<http.Server>` that resolves once the server is listening, and **rejects** if the underlying `http.Server` emits `'error'` before that (e.g. `EADDRINUSE` when `runningPort` is already in use) — always attach a `.catch(...)` (see the example apps' `require.main === module` blocks for the pattern). The resolved server has:
   - `closeAsync()` — `Promise<void>`, wraps `server.close()`, added for convenient teardown (used throughout the test suite).
 
 Also logs a metadata block (`title`, `purpose`, `version`, `handlers`) to console on `run()`, and one line per incoming request (`"<method> <route> invoked"`).

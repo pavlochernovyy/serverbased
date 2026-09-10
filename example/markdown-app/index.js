@@ -38,7 +38,12 @@ if (require.main === module) {
     version: '1.0',
     handlers,
     middlewares,
-  }).run();
+  })
+    .run()
+    .catch((error) => {
+      console.error('quote making app failed to start:', error.message);
+      process.exit(1);
+    });
 }
 
 module.exports = { handlers, middlewares };

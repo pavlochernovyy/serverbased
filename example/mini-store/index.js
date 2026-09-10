@@ -74,7 +74,12 @@ if (require.main === module) {
     version: '1.0',
     handlers,
     plugins,
-  }).run();
+  })
+    .run()
+    .catch((error) => {
+      console.error('mini-store app failed to start:', error.message);
+      process.exit(1);
+    });
 }
 
 module.exports = { handlers, plugins };
