@@ -1,6 +1,7 @@
 /**
  * @jest-environment node
  */
+const path = require('path');
 const { expect } = require('@jest/globals');
 const axios = require('axios/dist/node/axios.cjs');
 const fetch = (port) =>
@@ -10,15 +11,14 @@ const fetch = (port) =>
   });
 
 const { serverBased } = require('../../lib/server-based');
-const { handlers, plugins } = require('./index');
 
 const startMiniStoreApp = (port) =>
   serverBased({
     title: 'mini-store app',
     purpose: 'http api',
     version: '1.0',
-    handlers,
-    plugins,
+    handlers: [],
+    configPath: path.join(__dirname, 'serverbased.json'),
     runningPort: port,
   }).run();
 
@@ -95,7 +95,7 @@ test('keeps items isolated per cartId within the same server', async () => {
   await server.closeAsync();
 });
 
-test('each run() gets its own CartPlugin instance — no state leaks across server instances', async () => {
+test("each run() gets its own cart function's plugin instance — no state leaks across server instances", async () => {
   const portOne = 8706;
   const portTwo = 8707;
   const serverOne = await startMiniStoreApp(portOne);
@@ -113,11 +113,11 @@ test('each run() gets its own CartPlugin instance — no state leaks across serv
   await serverTwo.closeAsync();
 });
 
-test('GET /cart/:cartId/checkout on an empty cart has no discount', async () => {
+test('GET /sale/:cartId/checkout on an empty cart has no discount', async () => {
   const port = 8708;
   const server = await startMiniStoreApp(port);
 
-  const response = await fetch(port).get('/cart/cart-1/checkout');
+  const response = await fetch(port).get('/sale/cart-1/checkout');
 
   expect(response.status).toBe(200);
   expect(response.data.data).toEqual({
@@ -131,13 +131,13 @@ test('GET /cart/:cartId/checkout on an empty cart has no discount', async () => 
   await server.closeAsync();
 });
 
-test('GET /cart/:cartId/checkout applies no discount for 5 items or fewer', async () => {
+test('GET /sale/:cartId/checkout applies no discount for 5 items or fewer', async () => {
   const port = 8709;
   const server = await startMiniStoreApp(port);
 
   await fetch(port).post('/cart/cart-1/items', { id: 1, name: 'mug', price: 10, qty: 5 });
 
-  const response = await fetch(port).get('/cart/cart-1/checkout');
+  const response = await fetch(port).get('/sale/cart-1/checkout');
 
   expect(response.data.data).toEqual({
     itemCount: 5,
@@ -150,14 +150,14 @@ test('GET /cart/:cartId/checkout applies no discount for 5 items or fewer', asyn
   await server.closeAsync();
 });
 
-test('GET /cart/:cartId/checkout applies a bulk discount for more than 5 items', async () => {
+test('GET /sale/:cartId/checkout applies a bulk discount for more than 5 items', async () => {
   const port = 8710;
   const server = await startMiniStoreApp(port);
 
   await fetch(port).post('/cart/cart-1/items', { id: 1, name: 'mug', price: 10, qty: 3 });
   await fetch(port).post('/cart/cart-1/items', { id: 2, name: 'plate', price: 5, qty: 3 });
 
-  const response = await fetch(port).get('/cart/cart-1/checkout');
+  const response = await fetch(port).get('/sale/cart-1/checkout');
 
   expect(response.data.data).toEqual({
     itemCount: 6,
@@ -166,6 +166,19 @@ test('GET /cart/:cartId/checkout applies a bulk discount for more than 5 items',
     total: 40.5,
     bulkDiscountApplied: true,
   });
+
+  await server.closeAsync();
+});
+
+test("/sale/:cartId/checkout reads /cart's data over HTTP, across the plugin isolation boundary", async () => {
+  const port = 8711;
+  const server = await startMiniStoreApp(port);
+
+  await fetch(port).post('/cart/cart-1/items', { id: 1, name: 'mug', price: 10, qty: 2 });
+
+  const checkout = await fetch(port).get('/sale/cart-1/checkout');
+  expect(checkout.status).toBe(200);
+  expect(checkout.data.data.subtotal).toBe(20);
 
   await server.closeAsync();
 });

@@ -199,9 +199,21 @@ Read **once**, at startup, inside `run()` — no filesystem watching, no runtime
 
 - `path` — resolved relative to the location of `serverbased.json` itself (not `process.cwd()`), then `require`d.
 - `route` — mount prefix for that function's own routes: a handler registered at `GET /hello/:name` inside `greet.js` becomes reachable at `GET /greeter/hello/:name`.
-- Each function gets its own `express.Router()`, its own fresh plugin instances (same instantiate-per-`run()` semantics as the app's own `plugins`), and its own middleware, applied only within that function's mount — isolated from the host app and from other functions. This includes the default `store` plugin: a function that doesn't declare its own `store`-named plugin gets one auto-appended, exactly like the host app's own `handlers` do — its own fresh `Map`, so `provideState`/`conductState` inside a function's handlers work unchanged, but never share state with the host's or another function's store. A function that needs another function's data calls that function's own route over HTTP rather than reaching into its store — see `example/time-tracking-app/functions/reports.js`.
+- Each function gets its own `express.Router()`, its own fresh plugin instances (same instantiate-per-`run()` semantics as the app's own `plugins`), and its own middleware, applied only within that function's mount — isolated from the host app and from other functions. This includes the default `store` plugin: a function that doesn't declare its own `store`-named plugin gets one auto-appended, exactly like the host app's own `handlers` do — its own fresh `Map`, so `provideState`/`conductState` inside a function's handlers work unchanged, but never share state with the host's or another function's store. A function that needs another function's data calls that function's own route over HTTP rather than reaching into its store — see `example/time-tracking-app/functions/reports.js`, `example/mini-store/functions/sale.js`, and the `fetchJson` export below.
 
 Omitting `configPath` leaves `run()`'s behavior identical to before this feature existed.
+
+### `fetchJson(url)`
+
+Small dependency-free GET-JSON helper exported for exactly the cross-function-HTTP pattern above — one function's handler reading another function's (or the host app's) route:
+
+```js
+const { fetchJson } = require('./lib/server-based');
+
+const { data: entries } = await fetchJson(`${req.protocol}://${req.get('host')}/entries`);
+```
+
+Returns a `Promise` resolving with the parsed JSON response body, or rejecting on a connection error or a non-JSON body. Built on Node's `http` module rather than global `fetch`, for consistent behavior across every Node/Jest combination this repo runs on. Source: `lib/fetch-json.js`; see `lib/fetch-json.test.js`.
 
 ### Failure/collision handling — fails fast at startup, same posture as `compose.js`'s duplicate-route check
 

@@ -235,15 +235,46 @@ now resolved (functionally unchanged, no new code path required there).
   (dropped the `combined-*` mention from the Examples line).
 - Full suite green: 13 suites / 73 tests (was 16/80 before the deletions).
 
-### Resolution — point #3, recorded, not yet actioned
+### Resolution — point #3, done (2026-09-11)
 
-Decision recorded for when example migration actually starts (per point #4 below, not this
-turn): `mini-store` splits into two functions — `functions/cart.js` (its own `CartPlugin`) and
-`functions/sale.js` (its own `SalePlugin`) — same `example/function-registry` folder convention.
-`sale`'s `calculateTotal` needs `cart`'s items today (`context.sale.calculateTotal(items)` is
-called with items already fetched via `context.cart.getItems(cartId)` in the same handler) — once
-split into two functions, `sale`'s function calls `cart`'s own HTTP route to get the items it
-totals, rather than the current single-handler in-process call. Not implemented yet.
+`example/mini-store` split into two config-loaded functions, same `example/function-registry`
+folder convention:
+
+- `functions/cart.js`, mounted at `/cart` — same four cart handlers as before (`GET /:cartId`,
+  `POST /:cartId/items`, `DELETE /:cartId/items/:itemId`, `DELETE /:cartId`), own `CartPlugin`
+  (moved to `functions/plugins/cart.plugin.js`), reachable as `context.cart`.
+- `functions/sale.js`, mounted at `/sale` — the former `GET /cart/:cartId/checkout` handler,
+  now `GET /:cartId/checkout` → `/sale/:cartId/checkout` (URL-shape change — was under `/cart`,
+  now under `/sale`, since two functions can't share a mount prefix). Own `SalePlugin` (moved to
+  `functions/plugins/sale.plugin.js`), reachable as `context.sale`. No longer reads `cart`'s items
+  in-process (`context.cart.getItems(cartId)` doesn't exist here — different function, different
+  plugin instance); instead fetches `GET /cart/:cartId` over HTTP using the same `fetchJson` +
+  `http` module pattern `example/time-tracking-app/functions/reports.js` already established for
+  `/reports/summary` → `/entries`.
+- `serverbased.json` lists both; `index.js` collapsed to the same thin `configPath`-only shape as
+  `example/function-registry/index.js` (mini-store had no host-level `handlers` to keep).
+- `mini-store.test.js` rewritten to boot via `configPath` instead of importing `{ handlers,
+  plugins }` from `index.js`; checkout assertions moved to `/sale/:cartId/checkout`; added a test
+  asserting `/sale/:cartId/checkout` correctly reads `/cart`'s data across the HTTP boundary.
+- Docs updated: `docs/state/examples-and-tests.md` (`mini-store` example description rewritten),
+  `docs/state/open-items.md` (path reference for the plugin-constructor-arguments item),
+  `docs/state/core.md` ("Composed apps merge `plugins`" bullet rewritten — no longer references
+  the deleted `combined-mini-store-blog` example; new bullet describing the functions-based
+  isolation `mini-store` now demonstrates instead).
+- Full suite green: 13 suites / 74 tests (was 73 before this — one net new test).
+
+### Follow-up — shared `fetchJson` helper extracted (2026-09-11)
+
+`sale.js` and `reports.js` each had their own copy of the same GET-JSON helper for the
+cross-function-HTTP pattern. Extracted to `lib/fetch-json.js` (`fetchJson(url)`), exported from
+`lib/server-based.js` (the actual entry point every example already imports from — `package.json`'s
+`main: "index.js"` doesn't correspond to a real file, so this is where "the framework's public
+API" concretely lives). Both `example/mini-store/functions/sale.js` and
+`example/time-tracking-app/functions/reports.js` now `require('.../lib/server-based').fetchJson`
+instead of hand-rolling it. Added `lib/fetch-json.test.js` (4 tests: success, non-JSON body
+rejects, connection error rejects, exported correctly from `server-based.js`). Docs updated:
+`docs/state/core.md` (new bullet under "Function registry"), `docs/api/server-based.md` (new
+`### fetchJson(url)` section). Full suite green: 14 suites / 78 tests.
 
 ### Resolution — point #4, acknowledged
 

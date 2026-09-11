@@ -1,0 +1,12 @@
+{
+  "functions": {
+    "cart": {
+      "path": "./functions/cart.js",
+      "route": "/cart"
+    },
+    "sale": {
+      "path": "./functions/sale.js",
+      "route": "/sale"
+    }
+  }
+}

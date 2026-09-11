@@ -1,26 +1,4 @@
-const http = require('http');
-
-// Node's built-in http module rather than global fetch — kept dependency-free and works
-// under every Node/Jest combination this repo runs on (Jest's "node" test environment does
-// not expose global fetch even on a Node version that has it natively).
-const fetchJson = (url) =>
-  new Promise((resolve, reject) => {
-    http
-      .get(url, (res) => {
-        let body = '';
-        res.on('data', (chunk) => {
-          body += chunk;
-        });
-        res.on('end', () => {
-          try {
-            resolve(JSON.parse(body));
-          } catch (error) {
-            reject(error);
-          }
-        });
-      })
-      .on('error', reject);
-  });
+const { fetchJson } = require('../../../lib/server-based');
 
 // A function loaded via serverbased.json (see ../serverbased.json), mounted at /reports.
 // Has its own default "store" plugin, isolated from /entries' (the host app's) and /projects'
@@ -42,16 +20,6 @@ const handlerGetSummary = {
     context.provideState('summaryRequests', summaryRequests);
 
     const req = context.fetchRequest();
-    // right, so we made an ability to communicate with standalone services deployed as an app, besides the function...
-    // we use http layer to do so, no internal functions (helpers) to use...
-    // I think this is good, since, we do have a proper isolation between each other...
-    // we can make a common third party storage if we need to...
-    // currently there is no need to have it, as we can easily collect data on the fly...
-    // I would say, having a common storage from the outside is a good choice, when we want to process that data afterwards...
-    // like having a scheduler function to do so...
-    // hmm... actually making a scheduler function would be a good idea here...
-    // we do have a config file (.json)...
-    // I think we could introduce a new property to that file structure in order to satisfy such need...
     const { data: entries } = await fetchJson(`${req.protocol}://${req.get('host')}/entries`);
 
     const totalDurationMs = entries.reduce((sum, entry) => sum + (entry.durationMs || 0), 0);
