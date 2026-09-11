@@ -530,3 +530,18 @@ doc references pointing at the now-renamed example path were updated (`docs/stat
 `docs/api/README.md`), each noting "renamed 2026-09-11, was `example/function-registry`" so the
 history stays traceable. Full suite green: 14 suites / 81 tests (unchanged — pure rename, no
 behavior change).
+
+### Follow-up — `example/mini-store` renamed to `example/mini-store-app` (2026-09-11)
+
+Same treatment as `hello-world-app` above, for naming consistency with the other examples
+(`todo-app`, `blog-app`, `markdown-app`, `time-tracking-app` all end in `-app`). Renamed the
+directory (`example/mini-store` → `example/mini-store-app`) and its test file
+(`mini-store.test.js` → `mini-store-app.test.js`). No `title`/error-log string change needed —
+`index.js` already said `'mini-store app'`, which already matched. Updated doc references
+pointing at the old path: `lib/compose.js` (comment), `docs/state/compose.md`,
+`docs/api/compose.md`, `docs/state/core.md`, `docs/api/server-based.md`, `docs/api/README.md`,
+`docs/api/context-provider.md`, `docs/state/open-items.md`, `docs/state/examples-and-tests.md` —
+plain path substitution only, left `example/combined-mini-store-blog` (a different, already-
+deleted example's name, still mentioned as historical context in `docs/park/router-based-mounting.md`)
+untouched since it's an unrelated string, not a reference to the renamed directory. Full suite
+green: 14 suites / 81 tests (unchanged — pure rename, no behavior change).

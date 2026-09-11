@@ -2,7 +2,7 @@
 
 ← [index](./README.md) · see also [context-provider](./context-provider.md) (shared `stateStore`), [errors](./errors.md) (`ComposeError`)
 
-A "module" here is just what `example/todo-app`, `example/blog-app`, `example/markdown-app`, and `example/mini-store` already export: `{ handlers, middlewares?, plugins? }`. `composeModules` merges any number of them into a single triple suitable for `serverBased()`, so a running app can be extended with a new feature (e.g. adding an admin module to a blog) by writing that feature as its own module and composing it in, without touching the existing modules.
+A "module" here is just what `example/todo-app`, `example/blog-app`, `example/markdown-app`, and `example/mini-store-app` already export: `{ handlers, middlewares?, plugins? }`. `composeModules` merges any number of them into a single triple suitable for `serverBased()`, so a running app can be extended with a new feature (e.g. adding an admin module to a blog) by writing that feature as its own module and composing it in, without touching the existing modules.
 
 ```js
 const { serverBased } = require('./lib/server-based');

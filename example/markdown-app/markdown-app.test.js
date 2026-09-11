@@ -14,7 +14,7 @@ const { serverBased } = require('../../lib/server-based');
 
 const startMarkdownApp = (port) =>
   serverBased({
-    title: 'quote making app',
+    title: 'markdown app',
     purpose: 'http api',
     version: '1.0',
     handlers: [],

@@ -46,7 +46,7 @@ run(context) {
 }
 ```
 
-A plugin instance is shared by every handler and every request of that app instance, but a fresh instance is created for each `run()` call — so separate app instances (different apps, or different test servers) never share plugin state. See `example/mini-store` (`CartPlugin`) for a fuller example.
+A plugin instance is shared by every handler and every request of that app instance, but a fresh instance is created for each `run()` call — so separate app instances (different apps, or different test servers) never share plugin state. See `example/mini-store-app` (`CartPlugin`) for a fuller example.
 
 ## State (`provideState`/`conductState`)
 
