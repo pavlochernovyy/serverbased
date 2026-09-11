@@ -453,8 +453,62 @@ identical, just simpler code).
   example app).
 - Full suite green: 14 suites / 80 tests (one net new test — the plugin-isolation one).
 
-All four single-app examples (`todo-app`, `blog-app`, `markdown-app`, `mini-store`) are now
-migrated. Remaining before Decision 1 (dropping top-level `handlers`/`middlewares`/`plugins` from
-`serverBased(...)` entirely) can land: only `example/time-tracking-app` still combines top-level
-`handlers` with `configPath` in the same app — that's the one remaining call site that would need
-its own `handlers` folded into a function first.
+### `example/time-tracking-app`, done (2026-09-11)
+
+- `functions/entries.js` (new) — the 3 time-entry handlers (`start`, `stop`, `list`) moved out of
+  `index.js`'s top-level `handlers` array as-is, routes trimmed to leaf form relative to the new
+  `/entries` mount (`POST /start`, `POST /:entryId/stop`, `GET /`), same URLs as before. Uses the
+  default `store` plugin under the `entries` key, same as it did as a top-level handler — no
+  custom plugin needed here (unlike `todo-app`/`blog-app`, this app's seed is just an empty `Map`,
+  nothing to pre-populate).
+- `serverbased.json` — gained a third entry (`entries` → `functions/entries.js`, route
+  `/entries`), alongside the existing `projects`/`reports` entries.
+- `index.js` — dropped its own `handlers` array entirely, collapsed to the same thin
+  `configPath`-only shape every other migrated example now uses (`handlers: []`).
+- `functions/reports.js` — **unchanged**. Its `fetchJson(`${req.protocol}://${req.get('host')}/entries`)`
+  call already targeted the *URL* `/entries`, not the in-process host handlers directly — moving
+  `/entries` from a top-level handler to its own function changes nothing from `reports.js`'s
+  point of view, since it was already crossing an HTTP boundary to reach it. This is exactly the
+  isolation boundary the app was designed to demonstrate from the start.
+- `time-tracking-app.test.js` — rewritten to boot via a shared `startTimeTrackingApp(port)` helper
+  (`configPath`-only, no more `require('./index').handlers`) reused across all 4 existing tests;
+  same assertions, same URLs, no behavior change.
+- Docs updated: `docs/state/examples-and-tests.md` (example + test-row descriptions — dropped the
+  "declarative `handlers`"/"host" framing for `/entries`, now described alongside `/projects`/
+  `/reports` as one of three equal config-loaded functions), `docs/state/open-items.md` (the
+  "functions default to an isolated store" decision entry and the "see `example/time-tracking-app`
+  for the full pattern" pointer both dropped their now-stale "host app"/"declarative `handlers`"
+  references to `/entries`).
+- Full suite green: 14 suites / 80 tests (unchanged count — same 4 tests, migration is
+  behavior-preserving).
+
+All four single-app examples (`todo-app`, `blog-app`, `markdown-app`, `mini-store`) plus
+`time-tracking-app` are now fully config-driven — **no `example/*` app anywhere in the repo still
+passes top-level `handlers`/`middlewares`/`plugins` to `serverBased(...)`.** The only remaining
+callers of that standalone shape are `lib/server-based.js`'s own test suite
+(`lib/server-based.test.js`) and `lib/compose.test.js`/`lib/compose.js` (`composeModules`,
+Decision 2 — not yet deleted). Decision 1 (dropping `handlers`/`middlewares`/`plugins` from
+`serverBased(...)`'s accepted config, making `configPath` required) is now unblocked from the
+example side — the remaining work is purely in `lib/server-based.js` itself and its own test
+suite, not in any example app.
+
+### Follow-up — `entries`/`projects` seeded via scoped `store` plugins (2026-09-11)
+
+`functions/entries.js` and `functions/projects.js` still relied on lazy
+`context.conductState(key) || seedX()` fallbacks in every handler, same pattern `todo-app`/
+`blog-app` had before their own migrations. Brought them in line: added
+`functions/plugins/entries-store.plugin.js` (`EntriesStorePlugin extends Map`, seeds the
+`entries` key with an empty `Map`) and `functions/plugins/projects-store.plugin.js`
+(`ProjectsStorePlugin`, seeds `projects` the same way). Registered as each function's own `{
+name: 'store', plugin: ... }`, overriding the framework default. Unlike `todo-app`'s/`blog-app`'s
+seed data (a pre-existing todo/post), these seeds are scoped to just guaranteeing the key is
+always present as an empty `Map` — there's no starting entry/project to pre-populate, only the
+key itself needs to exist so handlers never see `undefined`. `functions/reports.js` intentionally
+untouched — keeps the framework's default `store` plugin, since its `summaryRequests` counter has
+no meaningful value to seed in advance (same reasoning `blog-app`'s `views:<postId>` counter got
+for staying unseeded). Added one new test, `time-tracking-app.test.js`: "each run() gets its own
+seeded EntriesStorePlugin/ProjectsStorePlugin instances — no state leaks across server instances"
+— same convention `todo-app.test.js`/`blog-app.test.js` established. Docs updated:
+`docs/state/examples-and-tests.md` (example description now distinguishes the two scoped-seed
+plugins from `/reports`' unseeded default store; test-row description updated). Full suite green:
+14 suites / 81 tests (one net new test).

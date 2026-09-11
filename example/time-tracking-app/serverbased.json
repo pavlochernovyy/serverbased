@@ -1,5 +1,9 @@
 {
   "functions": {
+    "entries": {
+      "path": "./functions/entries.js",
+      "route": "/entries"
+    },
     "projects": {
       "path": "./functions/projects.js",
       "route": "/projects"

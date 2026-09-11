@@ -10,20 +10,22 @@ const fetch = (port) =>
   });
 
 const { serverBased } = require('../../lib/server-based');
-const { handlers } = require('./index');
 
-test('declarative app handlers and config-loaded functions work side by side on one server', async () => {
-  const port = 8022;
-  const server = await serverBased({
+const startTimeTrackingApp = (port) =>
+  serverBased({
     title: 'time tracking app',
     purpose: 'http api',
     version: '1.0',
-    handlers,
+    handlers: [],
     configPath: path.join(__dirname, 'serverbased.json'),
     runningPort: port,
   }).run();
 
-  // config-driven side: /projects, from functions/projects.js
+test('config-loaded /entries and /projects functions work side by side on one server', async () => {
+  const port = 8022;
+  const server = await startTimeTrackingApp(port);
+
+  // /projects, from functions/projects.js
   const createdProject = await fetch(port).post('/projects', { id: 'p1', name: 'server-based' });
   expect(createdProject.status).toBe(201);
   expect(createdProject.data).toEqual({ data: { id: 'p1', name: 'server-based' } });
@@ -31,7 +33,7 @@ test('declarative app handlers and config-loaded functions work side by side on 
   const projects = await fetch(port).get('/projects');
   expect(projects.data).toEqual({ data: [{ id: 'p1', name: 'server-based' }] });
 
-  // declarative side: /entries, from index.js's own `handlers`
+  // /entries, from functions/entries.js
   const started = await fetch(port).post('/entries/start', { id: 'e1', taskId: 'p1' });
   expect(started.status).toBe(201);
   expect(started.data.data).toMatchObject({ id: 'e1', taskId: 'p1', stoppedAt: null, durationMs: null });
@@ -50,14 +52,7 @@ test('declarative app handlers and config-loaded functions work side by side on 
 
 test('stopping an unknown entry responds 404 without touching the config-loaded /projects state', async () => {
   const port = 8023;
-  const server = await serverBased({
-    title: 'time tracking app',
-    purpose: 'http api',
-    version: '1.0',
-    handlers,
-    configPath: path.join(__dirname, 'serverbased.json'),
-    runningPort: port,
-  }).run();
+  const server = await startTimeTrackingApp(port);
 
   const response = await fetch(port)
     .post('/entries/missing/stop')
@@ -72,14 +67,7 @@ test('stopping an unknown entry responds 404 without touching the config-loaded 
 
 test('/entries, /projects and /reports each get their own isolated default "store"', async () => {
   const port = 8024;
-  const server = await serverBased({
-    title: 'time tracking app',
-    purpose: 'http api',
-    version: '1.0',
-    handlers,
-    configPath: path.join(__dirname, 'serverbased.json'),
-    runningPort: port,
-  }).run();
+  const server = await startTimeTrackingApp(port);
 
   await fetch(port).post('/entries/start', { id: 'e1', taskId: 'p1' });
   await fetch(port).post('/entries/e1/stop');
@@ -111,14 +99,7 @@ test('/entries, /projects and /reports each get their own isolated default "stor
 
 test('/reports/summary reads /entries data over HTTP, across the store isolation boundary', async () => {
   const port = 8025;
-  const server = await serverBased({
-    title: 'time tracking app',
-    purpose: 'http api',
-    version: '1.0',
-    handlers,
-    configPath: path.join(__dirname, 'serverbased.json'),
-    runningPort: port,
-  }).run();
+  const server = await startTimeTrackingApp(port);
 
   await fetch(port).post('/entries/start', { id: 'e1', taskId: 'p1' });
   await new Promise((resolve) => setTimeout(resolve, 5));
@@ -134,4 +115,27 @@ test('/reports/summary reads /entries data over HTTP, across the store isolation
   expect(summary.data.data.totalDurationMs).toBeGreaterThan(0);
 
   await server.closeAsync();
+});
+
+test('each run() gets its own seeded EntriesStorePlugin/ProjectsStorePlugin instances — no state leaks across server instances', async () => {
+  const portOne = 8026;
+  const portTwo = 8027;
+  const serverOne = await startTimeTrackingApp(portOne);
+  const serverTwo = await startTimeTrackingApp(portTwo);
+
+  await fetch(portOne).post('/entries/start', { id: 'e1', taskId: 'p1' });
+  await fetch(portOne).post('/projects', { id: 'p1', name: 'server-based' });
+
+  const entriesOne = await fetch(portOne).get('/entries');
+  const entriesTwo = await fetch(portTwo).get('/entries');
+  expect(entriesOne.data.data).toHaveLength(1);
+  expect(entriesTwo.data.data).toHaveLength(0);
+
+  const projectsOne = await fetch(portOne).get('/projects');
+  const projectsTwo = await fetch(portTwo).get('/projects');
+  expect(projectsOne.data.data).toHaveLength(1);
+  expect(projectsTwo.data.data).toHaveLength(0);
+
+  await serverOne.closeAsync();
+  await serverTwo.closeAsync();
 });
