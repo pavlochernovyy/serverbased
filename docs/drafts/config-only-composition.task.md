@@ -111,12 +111,13 @@ example/<app-name>/
 Concrete mapping for today's examples (draft — to confirm per-app in follow-up, not decided here):
 
 - `example/todo-app` → single function `functions/todo.js` (today's `handlers`/`middlewares`
-  moved as-is), `serverbased.json` with one entry, route needs the "root mount" decision above
-  since `todo-app`'s routes are already `/todo`, `/todo/:todoId`.
-- `example/blog-app`, `example/markdown-app` → same single-function shape.
-- `example/mini-store` → single function carrying its `CartPlugin`/`SalePlugin`, or split into
-  `cart`/`sale` as two functions if isolation between them is ever wanted (default: keep as one
-  function, since they share `mini-store`'s handlers today).
+  moved as-is), `serverbased.json` with one entry. **Not yet migrated.**
+- `example/blog-app` → same single-function shape. **Not yet migrated.**
+- `example/markdown-app` → **done (2026-09-11)** — single function `functions/quote.js`, mounted
+  at `/quote` via `serverbased.json`, handler's own route is `/` (mount point is the whole
+  meaningful path, same convention `functions/projects.js` uses). See Migration log below.
+- `example/mini-store` → **done (2026-09-11)** — split into `cart`/`sale` functions rather than
+  kept as one, per point #3's resolution above (see "Resolution — point #3" below).
 - `example/combined-2-apps`, `example/combined-3-apps` → **removed**. Their entire purpose was
   demonstrating `composeModules`, which no longer exists. What they demonstrated (multiple
   feature modules under one running server) is now just... every app, by default, since every
@@ -331,3 +332,49 @@ All 12 tests (existing + new) pass. This unblocks Decision 3 above and de-risks 
 the plugin-injection mechanism the whole config-only model leans on for per-function
 functionality is proven to already work, not something the migration needs to build.
 
+## Migration log
+
+Per-app migrations, tracked separately from the resolution log above (which covers the open
+questions, not individual example migrations).
+
+### `example/markdown-app`, done (2026-09-11)
+
+- `functions/quote.js` — the single `handlerGetQuote` moved as-is, `route` changed from `/quote`
+  to `/` (the function's mount point at `/quote`, set in `serverbased.json`, is the whole
+  meaningful path — same convention `example/time-tracking-app/functions/projects.js` already
+  uses for `route: '/'`). The module's own `middlewares` (`cacheMarkdownData`) moved with it —
+  now scoped to this function's mount only, not applied globally (previously
+  `serverBased()`'s top-level `middlewares` were applied via `app.use(...)` for every route in
+  the app; not observable here since `markdown-app` only ever had this one route, but is the same
+  fix Decision 1 covers for apps with more than one route).
+- `serverbased.json` — one entry (`quote` → `functions/quote.js`, route `/quote`).
+- `index.js` — collapsed to the same thin `configPath`-only shape as `example/function-registry`
+  and `example/mini-store` (`markdown-app` had no plugins to carry over, no other host-level
+  concerns).
+- `markdown-app.test.js` — rewritten to boot via `configPath` instead of importing `{ handlers,
+  middlewares }` from `index.js`. Same two assertions (title/text rendered, falls back to "not
+  provided"), same URL (`GET /quote` — unchanged, since the function's `route` reproduces it
+  exactly).
+- Docs updated: `docs/state/examples-and-tests.md` (example description rewritten),
+  `docs/api/README.md` and `docs/api/server-based.md` (moved `markdown-app` out of the
+  "single-module usage" example grouping into the `configPath`/function-registry grouping, since
+  it's no longer a standalone-`handlers` example).
+- Full suite green: 14 suites / 78 tests (unchanged count — same 2 tests, same total, migration
+  is behavior-preserving).
+
+### Follow-up — `json2md` scoped to `example/markdown-app` only (2026-09-11)
+
+`json2md` was a dependency of `app/exploring/packages/server-based/package.json` even though only
+`example/markdown-app/functions/quote.js` ever used it. Added
+`example/markdown-app/package.json` (own `json2md` dependency) and ran `npm install` inside that
+folder — Node's module resolution checks the closest `node_modules` up the directory tree first,
+so `require('json2md')` from `functions/quote.js` now resolves from
+`example/markdown-app/node_modules` before it would reach the parent package's. Removed `json2md`
+from `app/exploring/packages/server-based/package.json`'s own dependencies. Verified the scoping
+is real (not just declarative) by deleting the old hoisted copy from
+`server-based/node_modules/json2md` and re-running the suite — still green. This repo's Lerna glob
+(`app/*/packages/*`) doesn't cover `example/markdown-app`, so this isn't a Lerna-managed package —
+same pattern already used elsewhere in the monorepo for standalone folders with their own
+`package.json`/`package-lock.json` outside the Lerna glob (e.g. `src/packages/npm-sandbox`).
+Full suite green: 14 suites / 78 tests (unchanged — this only changes where the dependency is
+installed from, not any behavior).

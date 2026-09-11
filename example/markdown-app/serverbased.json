@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "quote": {
+      "path": "./functions/quote.js",
+      "route": "/quote"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "example-markdown-app",
+  "version": "1.0.0",
+  "description": "server-based example app — renders markdown via json2md",
+  "private": true,
+  "dependencies": {
+    "json2md": "^2.0.3"
+  }
+}

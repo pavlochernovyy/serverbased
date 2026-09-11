@@ -1,6 +1,7 @@
 /**
  * @jest-environment node
  */
+const path = require('path');
 const { expect } = require('@jest/globals');
 const axios = require('axios/dist/node/axios.cjs');
 const fetch = (port) =>
@@ -10,15 +11,14 @@ const fetch = (port) =>
   });
 
 const { serverBased } = require('../../lib/server-based');
-const { handlers, middlewares } = require('./index');
 
 const startMarkdownApp = (port) =>
   serverBased({
     title: 'quote making app',
     purpose: 'http api',
     version: '1.0',
-    handlers,
-    middlewares,
+    handlers: [],
+    configPath: path.join(__dirname, 'serverbased.json'),
     runningPort: port,
   }).run();
 
