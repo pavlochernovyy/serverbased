@@ -178,7 +178,7 @@ serverBased({
 
 See `lib/server-based.test.js` ("server-based can register handlers with context or origin type") for a side-by-side `context` vs `origin` handler on the same server. Remember: only synchronous throws from an `origin` handler reach `runtimeErrorHandlingMiddleware` — an `async run(req, res)` that rejects is not caught.
 
-See `example/blog-app` for fuller usage (global/per-handler middleware, route params, `origin`-type handlers, request body/query handling); `example/markdown-app`/`example/todo-app` for the same per-handler middleware and a function's own scoped `middlewares` via `configPath` — `todo-app` also overrides the default `store` plugin (see [Plugins](#plugins) above) to seed its own state at construction time.
+See `lib/server-based.test.js` for fuller standalone-`handlers` usage (global/per-handler middleware, route params, `origin`-type handlers, request body/query handling) — every `example/*` app now goes through `configPath`; `example/markdown-app`/`example/todo-app`/`example/blog-app` for the same per-handler middleware and a function's own scoped `middlewares` via `configPath` — `todo-app` and `blog-app` also override the default `store` plugin (see [Plugins](#plugins) above) to seed their own state at construction time.
 
 ## Function registry (`configPath`)
 

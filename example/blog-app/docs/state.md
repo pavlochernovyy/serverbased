@@ -2,9 +2,27 @@
 
 ## What it is
 
-A CRUD blog API built directly on `server-based`, modeled after `example/todo-app` —
-same shape: `handlerType: 'context'`, one global logging middleware, storage via the
-framework's `provideState`/`conductState`. No auth.
+A CRUD blog API built on `server-based`'s config-driven function registry, modeled after
+`example/todo-app` — same shape: a single config-loaded function (`functions/blog.js`, mounted
+at `/posts` via `serverbased.json`), `handlerType: 'context'`, one function-scoped logging
+middleware, storage via the framework's `provideState`/`conductState`. No auth.
+
+## File layout
+
+```
+example/blog-app/
+  serverbased.json          # lists the "blog" function → functions/blog.js, route /posts
+  functions/
+    blog.js                 # the 5 CRUD handlers, loggingMiddleware, own "store" plugin
+    plugins/
+      blog-store.plugin.js  # BlogStorePlugin — seeds the "posts" key at construction
+  index.js                  # thin entrypoint: serverBased({ configPath }).run()
+  blog-app.test.js
+```
+
+Migrated (2026-09-11) from a standalone `serverBased({ handlers, middlewares }).run()` app to
+this config-driven shape — see `docs/drafts/config-only-composition.task.md` in the package root
+for the migration record. Route URLs are unchanged by the migration.
 
 ## Endpoints
 
@@ -16,12 +34,17 @@ framework's `provideState`/`conductState`. No auth.
 | PUT    | `/posts/:postId` | partial update, `404` if missing, keeps `createdAt`        |
 | DELETE | `/posts/:postId` | delete, `404` if missing                                  |
 
-Storage: `context.conductState('posts')` — a `Map<postId, {title, body, author, createdAt}>`,
-lazily seeded with one post (`seedPosts()`) on first access, held in `server-based`'s
-per-app-instance `stateStore`. Post ids are `posts.size + 1` as a string, computed
-inline in the create handler — fine for a linear demo, breaks under concurrent creates
-or after any delete (id reuse/collision). View counts live under a separate key per
-post (`views:<postId>`) in the same store.
+Storage: `context.conductState('posts')` — a `Map<postId, {title, body, author, createdAt}>`.
+Seeded with one post at construction time by `BlogStorePlugin` (`functions/plugins/blog-store.plugin.js`),
+which overrides the framework's default `store` plugin for this function only — no more
+`context.conductState('posts') || seedPosts()` fallback in every handler; `conductState('posts')`
+always returns the pre-seeded `Map`. A fresh, independently-seeded instance is created per
+`run()` call, isolated from every other function's store (see `blog-app.test.js`, "each run()
+gets its own seeded BlogStorePlugin instance"). Post ids are `posts.size + 1` as a string,
+computed inline in the create handler — fine for a linear demo, breaks under concurrent creates
+or after any delete (id reuse/collision). View counts live under a separate key per post
+(`views:<postId>`) in the same store — deliberately left *unseeded*, lazily initialized to `0` on
+first view, since (unlike `posts`) there's no meaningful value to seed it with in advance.
 
 All endpoints manually verified with `curl` (list/get/create/update/delete/404/400),
 and covered by `blog-app.test.js`.
@@ -34,13 +57,17 @@ and covered by `blog-app.test.js`.
   input.
 - `provideReply().send()` / `.sendWithCode()` — clean enough for success + validation-
   error responses (400/404/201).
-- `provideState(key, value)` / `conductState(key)` — the app-scoped `Map` behind these
+- `provideState(key, value)` / `conductState(key)` — the function-scoped `Map` behind these
   now backs all of this example's storage (posts and per-post view counts), no
   hand-rolled module-level storage object needed.
+- Overriding the default `store` plugin (`{ name: 'store', plugin: BlogStorePlugin }`) — lets
+  the app seed its own initial state at construction time instead of every handler carrying its
+  own lazy-seed fallback logic.
 - `runtimeErrorHandlingMiddleware` — malformed JSON bodies and thrown/rejected errors
   from `context` handlers get a shaped JSON error response, not an HTML stack trace
   (see `blog-app.test.js`, "malformed JSON request body").
-- Global middleware — trivial to add request logging.
+- A function's own scoped `middlewares` — trivial to add request logging without it leaking
+  onto any other function's routes.
 
 ## Gaps this example exposed (candidates for the framework to grow into)
 
@@ -57,7 +84,7 @@ and covered by `blog-app.test.js`.
 
 5. **No slugs/friendly URLs.** IDs are sequential numeric strings; a blog would typically want slug-based routes, which is purely an app-level decision today (framework has no opinion either way — this may be fine, but worth naming explicitly given the "framework" ambition).
 
-6. **`conductState`/`provideState` have no namespacing convention.** Every handler picks its own key string (`'posts'`, `` `views:${postId}` ``) by hand; nothing stops two unrelated handlers from colliding on the same key in a bigger app.
+6. **`conductState`/`provideState` have no namespacing convention *within* a function.** Every handler picks its own key string (`'posts'`, `` `views:${postId}` ``) by hand; nothing stops two unrelated handlers *in the same function* from colliding on the same key. (Cross-function collisions are no longer possible — each function gets its own isolated `store` plugin instance, see the config-only-composition migration — but that isolation boundary is per-function, not per-handler.)
 
 ## Deliberately out of scope for this pass
 

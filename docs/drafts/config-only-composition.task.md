@@ -427,3 +427,34 @@ and `docs/state/open-items.md` (marked the "Per-module middleware isolation" ite
 the still-open `router-based-mounting` item, which remains specifically about `composeModules`
 until that's deleted per Decision 2). Full suite green: 14 suites / 79 tests (unchanged — behavior
 identical, just simpler code).
+
+### `example/blog-app`, done (2026-09-11)
+
+- `functions/blog.js` — the 5 CRUD handlers moved as-is, routes trimmed to leaf form relative to
+  the function's `/posts` mount (`GET /`, `GET /:postId`, `POST /`, `PUT /:postId`,
+  `DELETE /:postId`), same URLs as before. `loggingMiddleware` moved with it, now function-scoped.
+- Seeding via a custom `store` plugin, same pattern as `example/todo-app`: added
+  `functions/plugins/blog-store.plugin.js` — `BlogStorePlugin extends Map`, seeding the `posts`
+  key in its constructor. Registered as `{ name: 'store', plugin: BlogStorePlugin }`. Every
+  handler's `context.conductState('posts') || seedPosts()` fallback is gone. The per-post view
+  counter (`views:<postId>`) stays unseeded/lazy — no meaningful value until a post is actually
+  viewed, so seeding it wouldn't make sense the way seeding `posts` does.
+- `serverbased.json` — one entry (`blog` → `functions/blog.js`, route `/posts`).
+- `index.js` — collapsed to the thin `configPath`-only shape.
+- `blog-app.test.js` — rewritten to boot via `configPath`; same 7 assertions, same URLs. Added one
+  new test asserting a fresh, independently-seeded `BlogStorePlugin` instance per `run()` call.
+- Docs updated: `docs/state/examples-and-tests.md` (example + test-row descriptions rewritten).
+  `blog-app` was the last example still in the "single-module usage"/"fuller usage" standalone-
+  `handlers` groupings in `docs/api/README.md` and `docs/api/server-based.md` — with it migrated,
+  every `example/*` app now goes through `configPath`, so both docs were reworded to point at
+  `lib/server-based.test.js` instead for the raw standalone-`handlers`/`middlewares` API surface
+  (that surface itself isn't gone — `serverBased()` still accepts `handlers`/`middlewares`/
+  `plugins` today, per-function; just no longer demonstrated by a top-level, no-`configPath`
+  example app).
+- Full suite green: 14 suites / 80 tests (one net new test — the plugin-isolation one).
+
+All four single-app examples (`todo-app`, `blog-app`, `markdown-app`, `mini-store`) are now
+migrated. Remaining before Decision 1 (dropping top-level `handlers`/`middlewares`/`plugins` from
+`serverBased(...)` entirely) can land: only `example/time-tracking-app` still combines top-level
+`handlers` with `configPath` in the same app — that's the one remaining call site that would need
+its own `handlers` folded into a function first.

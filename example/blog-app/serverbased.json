@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "blog": {
+      "path": "./functions/blog.js",
+      "route": "/posts"
+    }
+  }
+}

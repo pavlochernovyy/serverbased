@@ -1,6 +1,7 @@
 /**
  * @jest-environment node
  */
+const path = require('path');
 const { expect } = require('@jest/globals');
 const axios = require('axios/dist/node/axios.cjs');
 const fetch = (port) =>
@@ -10,15 +11,14 @@ const fetch = (port) =>
   });
 
 const { serverBased } = require('../../lib/server-based');
-const { handlers, middlewares } = require('./index');
 
 const startBlogApp = (port) =>
   serverBased({
     title: 'blog app',
     purpose: 'http api',
     version: '1.0',
-    middlewares,
-    handlers,
+    handlers: [],
+    configPath: path.join(__dirname, 'serverbased.json'),
     runningPort: port,
   }).run();
 
@@ -122,4 +122,22 @@ test('a malformed JSON request body is caught and sent as JSON instead of an HTM
   expect(response.data.name).toBe('SyntaxError');
 
   await server.closeAsync();
+});
+
+test('each run() gets its own seeded BlogStorePlugin instance — no state leaks across server instances', async () => {
+  const portOne = 8208;
+  const portTwo = 8209;
+  const serverOne = await startBlogApp(portOne);
+  const serverTwo = await startBlogApp(portTwo);
+
+  await fetch(portOne).post('/posts', { title: 'second post', body: 'more blog', author: 'pavlo' });
+
+  const fromServerOne = await fetch(portOne).get('/posts');
+  const fromServerTwo = await fetch(portTwo).get('/posts');
+
+  expect(Object.keys(fromServerOne.data.data)).toEqual(['1', '2']);
+  expect(Object.keys(fromServerTwo.data.data)).toEqual(['1']);
+
+  await serverOne.closeAsync();
+  await serverTwo.closeAsync();
 });
