@@ -6,6 +6,9 @@ const markdownApp = require('../markdown-app');
 
 // Same composeModules(...) call as combined-2-apps, with one more module added —
 // demonstrates that scaling to N feature modules costs nothing extra to wire up.
+
+// right, so we're composing 3 apps together here, one of them is changing the response body in it's own middleware applied for the rest though...
+// how are they actually applied?
 const { handlers, middlewares } = composeModules(todoApp, blogApp, markdownApp);
 
 if (require.main === module) {

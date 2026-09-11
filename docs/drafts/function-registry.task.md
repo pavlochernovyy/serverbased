@@ -1,3 +1,5 @@
+### Task state: Implemented
+
 Goal: a constantly-running server-based instance acts as an entry point that reads a declarative `serverbased.json` config file and mounts each independently-authored "function" it lists — each function shaped like today's feature module (own `handlers`/`plugins`, own file), so the function-authoring experience stays consistent with the existing module pattern.
 
 Pickup mechanism (decided): declarative config, not live filesystem watching. `serverbased.json` lists every function's `path` (to its module file) and `route` (its mount prefix). The server reads this file once at startup, `require`s each listed `path`, and mounts its handlers under its `route`. No runtime add/remove/on/off — enabling, disabling, or adding a function means editing `serverbased.json` and restarting the process. There is no runtime registry, no file watcher, no per-function status state machine.

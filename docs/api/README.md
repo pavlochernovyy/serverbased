@@ -1,5 +1,7 @@
 # server-based — API reference (index)
 
+← [index](../README.md)
+
 `server-based` turns a declarative config object into a running Express server.
 Source: `lib/server-based.js`, `lib/context.provider.js`, `lib/compose.js`, `lib/function-registry-config.js`.
 

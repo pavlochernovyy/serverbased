@@ -1,6 +1,6 @@
 # Examples and tests
 
-← [index](./README.md)
+← [index](../README.md)
 
 ## Examples
 

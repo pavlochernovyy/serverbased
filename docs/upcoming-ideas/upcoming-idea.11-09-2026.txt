@@ -1,0 +1,28 @@
+Plan to discuss:
+Okay, what shall we do for today?..
+Let's inspect what do we currently have
+Let's also find out, the state, our system is currently are...
+
+Provide the following updates to documentation located at: "app/exploring/packages/server-based/docs/state/open-items.md" and make the "park" folder to analyze parked items separately:
+1. Remove Validation layer mentioning, since it is drafted, basically declined as overkill for current scale;
+2. I need more context regarding: "Router-based mounting for composeModules — POC idea (namespacing + scope middleware)" as it was postponed:
+make a new file with drafting and explaining the solution discussed.
+3. Per-module middleware isolation — not started; middlewares still global across composed modules:
+let's park it as well, I need to understand is it a bad situation, we currently are, since we have isolated modules and functions already;
+4. Plugin constructor arguments. Let's focus on it later. Fine for me to postpone it now;
+5. Please correct the following "Plugin type notations — considered, declined for now", to: Make factory validations for data structure serverbased consumes or provides.
+This way, we can ensure that initialization happens correctly. We could follow the same approach for dynamic validation within handlers by providing a "generic" factory to validate expected values from body or params;
+6. Delete "Function registry follow-ups — explicitly out of scope for now: runtime enable/disable API, live fs watching, per-function feature-flag config fields, process-per-function spawning." as we agreed to focus on config based initialization;
+
+I changed the docs folder structure to the following:
+1. added: /drafts (containing the draft solution we did or will focus on)
+2. moved: /part folder from /state to /docs in order to have it for parked items collected commonly
+3. added: /upcoming-ideas having idea for particular day we are cooperating on;
+I need you to do:
+1. Ensure parked items are properly linked to /park folder at: "app/exploring/packages/server-based/docs/state/open-items.md"
+2. Provide corresponding updates to the docs, where you would feel convenient to know how this is organized from now
+including updated table in README.md's to list the park/ folder, or the API docs cross-checked too.
+
+I reviewed, docs looks good to me;
+I added: "### Task state: Implemented" notion to: "app/exploring/packages/server-based/docs/upcoming-ideas/upcoming-idea.11-09-2026.txt"
+Btw, is there a shortcut in webstorm to copy path from repository's root?

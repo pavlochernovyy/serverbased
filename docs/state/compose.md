@@ -1,6 +1,6 @@
 # Module composition (`lib/compose.js`)
 
-← [index](./README.md) · API details: [compose.md](../api/compose.md) · see also [open-items.md](./open-items.md)
+← [index](../README.md) · API details: [compose.md](../api/compose.md) · see also [open-items.md](./open-items.md)
 
 - `composeModules(...modules)` — accepts any number of `{ handlers?, middlewares?, plugins? }` modules (the exact shape `example/todo-app`, `example/blog-app`, `example/markdown-app`, `example/mini-store` already export) and merges them into one `{ handlers, middlewares, plugins }`, ready to hand to `serverBased()`.
 - Handlers are concatenated in module order; a duplicate `method + route` across modules throws `ComposeError` (extends `ServerBasedError`) at composition time — a startup-time failure, not a runtime one, since composition happens before `serverBased(...).run()` is called.

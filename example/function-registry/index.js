@@ -1,6 +1,8 @@
 const path = require('path');
 const { serverBased } = require('../../lib/server-based');
 
+// okay, sinse the function uses the same logic without having troubles with middleware as combined apps do
+// I think we can simplify combined apps to function's way of doint it.
 if (require.main === module) {
   serverBased({
     title: 'function registry app',

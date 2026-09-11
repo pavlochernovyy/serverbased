@@ -82,6 +82,15 @@ const loggingMiddleware = {
     res.send = (body) => {
       // only tag plain-object bodies — spreading a string/array/etc. here would mangle it
       // (e.g. a markdown string composed in from another module) instead of tagging it
+
+      // okay, the problem is, some of the middlewares, which we are currently in, can ovverride the response, which could be a simple string value - to object instead...
+      // hmm...
+      // this is not good, ofcourse...
+      // why the middleware to app1 should have access to the http context for app1?
+      // we do need to apply them separately...
+      // but how?
+      // since we register same handlers and same middlewares?
+      // but where do we do this?
       const isPlainObject = body !== null && typeof body === 'object' && !Array.isArray(body);
       const data = isPlainObject ? { ...body, logs: 'submitted' } : body;
 
