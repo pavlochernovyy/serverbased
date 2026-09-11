@@ -1,6 +1,6 @@
 # Parked: per-module middleware isolation
 
-← [open-items](../state/open-items.md) · relates to [compose.md](../state/compose.md), [core.md](../state/core.md), [router-based-mounting.md](./router-based-mounting.md)
+← [open-items](../state/open-items.md) · relates to [core.md](../state/core.md), [router-based-mounting.md](./router-based-mounting.md)
 
 > **Resolved 2026-09-11**, as a side effect of the config-only-composition migration (see
 > [`drafts/config-only-composition.task.md`](../drafts/config-only-composition.task.md)), not by

@@ -1,18 +1,17 @@
 # Errors
 
-← [index](./README.md) · see also [server-based](./server-based.md), [compose](./compose.md) (`ComposeError`)
+← [index](./README.md) · see also [server-based](./server-based.md)
 
 | class            | extends            | thrown when |
 |-------------------|--------------------|-------------|
 | `ServerBasedError` | `Error`            | missing `title`/`purpose`/`version`/`configPath` on `serverBased(config)`, unsupported `networkProtocol`, or missing `name`/`plugin` on a plugin descriptor (via `toPlugin`, thrown while a function's own `plugins` are validated) |
 | `HandlerError`      | `ServerBasedError` | missing `route`/`method`/`run`/`handlerType` on a handler config |
 | `RuntimeError`      | `ServerBasedError` | not thrown internally — a convenience class for handlers to throw with an explicit `statusCode` (default `500`), e.g. `throw new RuntimeError('post not found', 404)` |
-| `ComposeError`      | `ServerBasedError` | two modules passed to `composeModules` register the same `method` + `route`, or the same plugin `name` — see [compose.md](./compose.md) |
 | `FunctionRegistryError` | `ServerBasedError` | a `serverbased.json` function entry is missing `path`/`route`, its `path` fails to `require`, two functions share a `route`, a duplicate plugin `name` within one function's own `plugins`, or a duplicate `method`+`route` within one function's own `handlers` — see [server-based.md#function-registry-configpath](./server-based.md#function-registry-configpath). This is now where every route/plugin-name collision check lives, since `configPath` is the only way to register routes |
 
-`serverBased`, `toHandler`, `toPlugin`, `assertNoDuplicateRoutes`, `defaults`, `ServerBasedError`, `HandlerError`, `RuntimeError`, `fetchJson` are all exported from `lib/server-based.js`. `composeModules`, `ComposeError` are exported from `lib/compose.js`. `loadFunctionRegistryConfig`, `FunctionRegistryError` are exported from `lib/function-registry-config.js`.
+`serverBased`, `toHandler`, `toPlugin`, `assertNoDuplicateRoutes`, `defaults`, `ServerBasedError`, `HandlerError`, `RuntimeError`, `fetchJson` are all exported from `lib/server-based.js`. `loadFunctionRegistryConfig`, `FunctionRegistryError` are exported from `lib/function-registry-config.js`. (`composeModules`/`ComposeError`/`lib/compose.js` were deleted 2026-09-11 — see `docs/drafts/config-only-composition.task.md`.)
 
-`ServerBasedError`/`HandlerError`/`FunctionRegistryError`/`ComposeError` are only thrown during config/handler/composition setup (synchronously, before `run()` starts listening). Note the exact timing differs slightly: `title`/`purpose`/`version`/`configPath`/`networkProtocol` are validated when `serverBased(config)` is called; each function's own `handlers` (`toHandler`)/`plugins` (`toPlugin`, plus route- and plugin-name-duplicate checks) are validated inside `loadFunctionRegistryConfig`, called from `run()` — still before the server starts listening but one call later than the others.
+`ServerBasedError`/`HandlerError`/`FunctionRegistryError` are only thrown during config/handler/composition setup (synchronously, before `run()` starts listening). Note the exact timing differs slightly: `title`/`purpose`/`version`/`configPath`/`networkProtocol` are validated when `serverBased(config)` is called; each function's own `handlers` (`toHandler`)/`plugins` (`toPlugin`, plus route- and plugin-name-duplicate checks) are validated inside `loadFunctionRegistryConfig`, called from `run()` — still before the server starts listening but one call later than the others.
 
 ## `runtimeErrorHandlingMiddleware`
 

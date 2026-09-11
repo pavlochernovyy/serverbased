@@ -3,7 +3,7 @@
 ← [index](../README.md)
 
 `server-based` turns a declarative config object into a running Express server.
-Source: `lib/server-based.js`, `lib/context.provider.js`, `lib/compose.js`, `lib/function-registry-config.js`.
+Source: `lib/server-based.js`, `lib/context.provider.js`, `lib/function-registry-config.js`.
 
 ```js
 const path = require('path');
@@ -21,8 +21,7 @@ there, see [`server-based.md`](./server-based.md#function-registry-configpath).
 |------|--------|
 | [`server-based.md`](./server-based.md) | `serverBased(config)`, `toHandler(handlerConfig)`, `toPlugin(pluginConfig)`, `handlerType` (`context`/`origin`), `plugins` config field, `configPath`/function registry, minimal example, global/per-handler middleware, `defaults` export |
 | [`context-provider.md`](./context-provider.md) | `ContextProvider` methods, typical handler shape, the plugin system (`context.<pluginName>`), `provideState`/`conductState` app-scoped state |
-| [`errors.md`](./errors.md) | `ServerBasedError`, `HandlerError`, `RuntimeError`, `ComposeError`, `FunctionRegistryError`, `runtimeErrorHandlingMiddleware` |
-| [`compose.md`](./compose.md) | `composeModules(...modules)`, `ComposeError`, things to watch when composing feature modules, including plugin-name collisions |
+| [`errors.md`](./errors.md) | `ServerBasedError`, `HandlerError`, `RuntimeError`, `FunctionRegistryError`, `runtimeErrorHandlingMiddleware` |
 
 ## Examples
 

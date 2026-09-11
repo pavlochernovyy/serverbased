@@ -1,6 +1,6 @@
 # `serverBased` / `toHandler`
 
-← [index](./README.md) · see also [errors](./errors.md), [context-provider](./context-provider.md), [compose](./compose.md)
+← [index](./README.md) · see also [errors](./errors.md), [context-provider](./context-provider.md)
 
 ## `serverBased(config)`
 
@@ -191,7 +191,7 @@ See `lib/server-based.test.js` for the fullest coverage of this API surface (glo
 
 ## Function registry (`configPath`)
 
-`configPath` points `run()` at a `serverbased.json` file listing independently-authored "functions" — each shaped like a regular feature module (`{ handlers, middlewares?, plugins? }`, same shape `composeModules` also consumes) — mounted on their own `express.Router()`. This is the **only** way to register routes on a `serverBased(...)` app (required field, see the config table above). Loaded via `lib/function-registry-config.js` (`loadFunctionRegistryConfig`), a small module kept separate from `server-based.js` the same way `compose.js` is.
+`configPath` points `run()` at a `serverbased.json` file listing independently-authored "functions" — each shaped like a regular feature module (`{ handlers, middlewares?, plugins? }`) — mounted on their own `express.Router()`. This is the **only** way to register routes on a `serverBased(...)` app (required field, see the config table above). Loaded via `lib/function-registry-config.js` (`loadFunctionRegistryConfig`), a small module kept separate from `server-based.js`.
 
 Read **once**, at startup, inside `run()` — no filesystem watching, no runtime add/remove/enable/disable. Adding, removing, or editing a function means editing `serverbased.json` and restarting the process.
 
@@ -222,7 +222,7 @@ const { data: entries } = await fetchJson(`${req.protocol}://${req.get('host')}/
 
 Returns a `Promise` resolving with the parsed JSON response body, or rejecting on a connection error or a non-JSON body. Built on Node's `http` module rather than global `fetch`, for consistent behavior across every Node/Jest combination this repo runs on. Source: `lib/fetch-json.js`; see `lib/fetch-json.test.js`.
 
-### Failure/collision handling — fails fast at startup, same posture as `compose.js`'s duplicate-route check
+### Failure/collision handling — fails fast at startup
 
 - `configPath` missing from `serverBased(...)`'s own config — throws `ServerBasedError` immediately (`configPath` is required, see the config table above).
 - `configPath` given but the file doesn't exist, or `functions` is empty/absent — not an error: one `console.log` line, zero functions mounted, boot continues normally.

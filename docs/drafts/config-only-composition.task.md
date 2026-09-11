@@ -611,6 +611,40 @@ standalone `handlers`/`middlewares`/`plugins` config, `lib/server-based.js` was 
   the duplicate-plugin-name-in-one-function test, and the function-registry-config duplicate-
   plugin-name unit test).
 
-**Remaining before Decision 2** (deleting `composeModules`/`lib/compose.js` outright): nothing
-blocks it from the example side — no `example/*` app uses `composeModules` either. It's simply the
-next, separate piece of cleanup, not yet started.
+## Decision 2 landed — `composeModules`/`lib/compose.js` deleted (2026-09-11)
+
+- Deleted outright: `lib/compose.js`, `lib/compose.test.js`, `docs/state/compose.md`,
+  `docs/api/compose.md`. No re-export shim, no legacy path — matches Decision 2's original
+  posture. Nothing in `lib/server-based.js` or `lib/function-registry-config.js` actually
+  `require`d `compose.js` (only comments referenced it), so this was a pure doc/test-suite cleanup
+  once the files themselves were gone — updated the two source comments that mentioned
+  `compose.js`/`composeModules` for context.
+- **Docs updated** everywhere `composeModules`/`ComposeError`/`compose.md` was referenced as
+  current, live behavior: `docs/README.md` (top overview, folder/section tables), `docs/api/README.md`
+  (source list, sections table, intro snippet), `docs/api/server-based.md` (header nav, function-
+  registry section, failure-handling heading), `docs/api/errors.md` (dropped the `ComposeError`
+  row entirely, fixed the export list and header nav), `docs/api/context-provider.md` (the "when
+  composing modules" section no longer applies — rewritten as "store is per-function, not shared
+  across an app," which is the actually-relevant fact for `configPath`-only apps), `docs/state/core.md`
+  (Plugin system/Function registry sections), `docs/state/examples-and-tests.md` (dropped the
+  `compose.test.js` row).
+- **Two open items closed as superseded**, not just edited: `docs/state/open-items.md`'s
+  "Mounting composed modules via `app.use(prefix, router)`" item is now moot — the thing it wanted
+  (router-per-module mounting) is exactly what the function registry already does for every app,
+  and the flat-merge mechanism it was proposing to fix no longer exists to fix. Marked
+  `[Superseded 2026-09-11]`, same treatment the middleware-isolation item got when *that* was
+  resolved. `docs/park/router-based-mounting.md` got the matching resolved-note treatment (kept
+  the original idea/reasoning as historical record below the note, not rewritten) —
+  `per-module-middleware-isolation.md`'s existing resolved-note just needed its now-dead
+  `compose.md` link removed from the nav line (its historical body text, which mentions
+  `compose.md` inline while narrating the original bug, was left alone — same "don't rewrite
+  history" posture as everywhere else in this log).
+- `.claude/skills/check-if-can-commit/SKILL.md` also referenced `compose.md` in its doc-cross-
+  check list — updated.
+- Full suite green: 13 suites / 77 tests (−7 vs. before this — `compose.test.js`'s 7 tests, the
+  only tests lost).
+
+Both Decision 1 and Decision 2 from this draft are now fully landed. What remains on the original
+open-questions list is genuinely separate follow-on work, not blocking anything: the "Factory
+validations for data structures" and "Plugin constructor arguments" items in
+`docs/state/open-items.md`.

@@ -1,6 +1,16 @@
 # Parked: router-based mounting for `composeModules`
 
-← [open-items](../state/open-items.md) · relates to [compose.md](../state/compose.md), [core.md](../state/core.md)
+← [open-items](../state/open-items.md) · relates to [core.md](../state/core.md)
+
+> **Superseded 2026-09-11.** `composeModules`/`lib/compose.js` — the flat-merge mechanism this
+> whole item was about fixing — was deleted outright once the config-only-composition migration
+> (see [`drafts/config-only-composition.task.md`](../drafts/config-only-composition.task.md)) left
+> no `example/*` app depending on it. What this item proposed (mount each module on its own
+> `express.Router()`, scoping routes and middleware together) is exactly what the function
+> registry (`configPath` + `lib/function-registry-config.js`) already does for every app today —
+> it just arrived via a different, larger change than the incremental fix sketched below. Kept
+> below as the historical record of the idea and the reasoning; not current behavior, and no
+> `docs/state/compose.md` exists any more to link back to.
 
 ## The idea
 

@@ -12,9 +12,9 @@ required, and this is the only way to register routes (config-only composition, 
 A plugin system (`ContextProvider` + a function's own `plugins` field) lets per-function state
 and behavior be attached onto the request context under a name (`context.<name>`), with a
 default `store` plugin (a `Map`) auto-injected for backward compatibility with
-`provideState`/`conductState`. `composeModules` (`lib/compose.js`) is a second, older
-composition path with the same `{ handlers, middlewares?, plugins? }` module shape — still
-present, not yet load-bearing for any `example/*` app (see [`state/open-items.md`](./state/open-items.md)).
+`provideState`/`conductState`. `composeModules`/`lib/compose.js` — an older, separate composition
+path with the same `{ handlers, middlewares?, plugins? }` module shape — was deleted 2026-09-11
+once no `example/*` app depended on it any more (see `docs/drafts/config-only-composition.task.md`).
 
 ## Folders
 
@@ -31,7 +31,6 @@ present, not yet load-bearing for any `example/*` app (see [`state/open-items.md
 | file | covers |
 |------|--------|
 | [`state/core.md`](./state/core.md) | `serverBased` factory, `toHandler`, `ContextProvider`, the plugin system, error handling |
-| [`state/compose.md`](./state/compose.md) | `composeModules`, `test-fixtures.js`, the middleware sharp edge it introduced, plugin-name collision handling |
 | [`state/examples-and-tests.md`](./state/examples-and-tests.md) | what each `example/*` app demonstrates, what each test file covers |
 | [`state/open-items.md`](./state/open-items.md) | declined/postponed/not-started work, for picking up later |
 
@@ -43,7 +42,6 @@ present, not yet load-bearing for any `example/*` app (see [`state/open-items.md
 |------|--------|
 | [`api/server-based.md`](./api/server-based.md) | `serverBased(config)`, `toHandler(handlerConfig)`, `toPlugin(pluginConfig)`, `handlerType` (`context`/`origin`), `plugins` config field, `configPath`/function registry, minimal example, global/per-handler middleware, `defaults` export |
 | [`api/context-provider.md`](./api/context-provider.md) | `ContextProvider` methods, typical handler shape, the plugin system (`context.<pluginName>`), `provideState`/`conductState` app-scoped state |
-| [`api/errors.md`](./api/errors.md) | `ServerBasedError`, `HandlerError`, `RuntimeError`, `ComposeError`, `FunctionRegistryError`, `runtimeErrorHandlingMiddleware` |
-| [`api/compose.md`](./api/compose.md) | `composeModules(...modules)`, `ComposeError`, things to watch when composing feature modules, including plugin-name collisions |
+| [`api/errors.md`](./api/errors.md) | `ServerBasedError`, `HandlerError`, `RuntimeError`, `FunctionRegistryError`, `runtimeErrorHandlingMiddleware` |
 
 `api/` is about *how to call it*; see [`api/README.md`](./api/README.md) for the full index, including example apps to reference.
