@@ -32,11 +32,24 @@ for the bug that triggered the realization. Reproduced here as the origin of dec
    legacy path, no re-export shim. Anything `composeModules` did (route/plugin-name collision
    checks across modules) is already covered by `function-registry-config.js`'s existing
    fail-fast checks across functions.
-3. **Cross-module calls become HTTP calls.** A function that needs another function's (or the
-   app's) data reads it through that function's own public route — the pattern
-   `example/time-tracking-app/functions/reports.js` already establishes for `/reports/summary`
-   calling `/entries`. No module ever `require`s another module's internals for data access —
-   this also removes the module-cycling risk the author's comment flags.
+3. **Cross-function *data* access goes over HTTP; a function's *own* plugins stay in-process via
+   context.** These are two different things — worth stating precisely after Phase 0 below proved
+   the plugin path actually works:
+   - A function that needs *another* function's (or the app's) data reads it through that
+     owner's own public route — the pattern `example/time-tracking-app/functions/reports.js`
+     already establishes for `/reports/summary` calling `/entries`. No module ever `require`s
+     another module's internals for data access — this also removes the module-cycling risk the
+     author's comment flags. **Deliberately HTTP-only, not a limitation to lift later**: bringing
+     another function's data into this function's context risks a middleware here silently
+     mutating or reshaping it in ways that are hard to trace back to the source; an HTTP call is
+     an explicit, independently loggable action instead. Revisit only if a concrete need for a
+     lower-latency in-process path shows up — not planned as a near-term follow-up.
+   - A function's **own** plugin (e.g. its own `store`, or a custom one like `CartPlugin`) is
+     still injected onto `context.<name>` in-process, exactly like `serverBased()`'s top-level
+     `plugins` do today — see Phase 0 below. The plugin's own methods are free to reach out over
+     HTTP internally if the work they do needs another function's data, keeping that boundary
+     explicit and loggable at the point it actually crosses functions, rather than the framework
+     silently handing one function's raw state to another's context.
 4. **Every example gets the `time-tracking-app` shape**: `serverbased.json` at the app root,
    route handlers/plugins/middlewares live in `functions/<name>.js` files, `index.js` is a thin
    entrypoint that does `serverBased({ title, purpose, version, configPath }).run()` and nothing
@@ -188,11 +201,36 @@ Concrete mapping for today's examples (draft — to confirm per-app in follow-up
    config surface, arguably more dead than `composeModules` was), or stay out of scope and get
    tracked separately?
 
-## Review questions
-Are we able to provide plugins by functions today?
-Let's tests this feature first.
-Make example app for such need.
-I want the functions to be able inject own plugin like store to the serverbased and use it through the context, not http
+## Phase 0 — verified: functions can already provide their own plugins via context
 
+Before committing to the migration, the question was raised: *can a function loaded via
+`configPath` already bring its own named plugin (like `store`) and use it through context, not
+HTTP?* Answer: **yes, already works today**, unchanged by this migration — confirmed by code
+inspection and now by tests:
 
+- `lib/function-registry-config.js` maps a function module's own `plugins` array through
+  `toPlugin`, exactly like `serverBased()`'s top-level `plugins`.
+- `lib/server-based.js`'s function loop builds `functionPluginInstances` from
+  `functionEntry.plugins` the same way it builds the host's own `pluginInstances`, then passes
+  them into `registerHandlers(functionRouter, functionEntry.handlers, functionPluginInstances)` →
+  `injectContext` → `context.<pluginName>`. In-process, scoped to that function's own router —
+  isolated from every other function and the host, same story the default `store` plugin already
+  had.
+
+This was previously unverified — no test exercised a function's own *named* plugin via
+`configPath` (only the top-level `plugins` field and the auto-injected default `store` were
+covered). Added:
+
+- `example/function-registry/functions/cart.js` — a new function bringing its own `CartPlugin`,
+  reachable as `context.cart`, mounted at `/cart` via `example/function-registry/serverbased.json`.
+- Two integration tests in `example/function-registry/function-registry.test.js`: the plugin
+  resolves and works over HTTP calls to the function's own routes, and a fresh `run()` call gets
+  a fresh plugin instance (no state leak across app instances — mirrors the existing guarantee
+  `example/mini-store/mini-store.test.js` proves for top-level plugins).
+- One unit test in `lib/function-registry-config.test.js` — the loader passes a function's
+  `plugins` through `toPlugin` correctly, independent of the HTTP layer.
+
+All 12 tests (existing + new) pass. This unblocks Decision 3 above and de-risks the migration:
+the plugin-injection mechanism the whole config-only model leans on for per-function
+functionality is proven to already work, not something the migration needs to build.
 

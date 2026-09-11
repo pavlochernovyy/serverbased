@@ -3,6 +3,10 @@
     "greeter": {
       "path": "./functions/greet.js",
       "route": "/greeter"
+    },
+    "cart": {
+      "path": "./functions/cart.js",
+      "route": "/cart"
     }
   }
 }

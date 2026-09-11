@@ -29,6 +29,57 @@ test('mounts a function listed in serverbased.json under its configured route', 
   await server.closeAsync();
 });
 
+test("a function's own named plugin is reachable via context, in-process (not HTTP)", async () => {
+  const port = 8026;
+  const server = await serverBased({
+    title: 'function registry app',
+    purpose: 'http api',
+    version: '1.0',
+    handlers: [],
+    configPath: path.join(__dirname, 'serverbased.json'),
+    runningPort: port,
+  }).run();
+
+  const created = await fetch(port).post('/cart/items', { id: 'i1', name: 'widget' });
+  expect(created.status).toBe(201);
+  expect(created.data).toEqual({ data: { i1: { id: 'i1', name: 'widget' } } });
+
+  const items = await fetch(port).get('/cart/items');
+  expect(items.data).toEqual({ data: { i1: { id: 'i1', name: 'widget' } } });
+
+  await server.closeAsync();
+});
+
+test("a function's own plugin instance is fresh per run() call — no state leaks across app instances", async () => {
+  const portA = 8027;
+  const serverA = await serverBased({
+    title: 'function registry app',
+    purpose: 'http api',
+    version: '1.0',
+    handlers: [],
+    configPath: path.join(__dirname, 'serverbased.json'),
+    runningPort: portA,
+  }).run();
+
+  await fetch(portA).post('/cart/items', { id: 'i1', name: 'widget' });
+
+  const portB = 8028;
+  const serverB = await serverBased({
+    title: 'function registry app',
+    purpose: 'http api',
+    version: '1.0',
+    handlers: [],
+    configPath: path.join(__dirname, 'serverbased.json'),
+    runningPort: portB,
+  }).run();
+
+  const itemsOnB = await fetch(portB).get('/cart/items');
+  expect(itemsOnB.data).toEqual({ data: {} });
+
+  await serverA.closeAsync();
+  await serverB.closeAsync();
+});
+
 test('omitting configPath boots normally with no functions mounted', async () => {
   const port = 8021;
   const server = await serverBased({
@@ -43,6 +94,28 @@ test('omitting configPath boots normally with no functions mounted', async () =>
     .get('/greeter/hello/world')
     .catch((error) => error.response);
   expect(response.status).toBe(404);
+
+  await server.closeAsync();
+});
+
+test('reaches both cart and greeter functions on the same running serverbased instance', async () => {
+  const port = 8029;
+  const server = await serverBased({
+    title: 'function registry app',
+    purpose: 'http api',
+    version: '1.0',
+    handlers: [],
+    configPath: path.join(__dirname, 'serverbased.json'),
+    runningPort: port,
+  }).run();
+
+  const greeted = await fetch(port).get('/greeter/hello/world');
+  expect(greeted.status).toBe(200);
+  expect(greeted.data).toEqual({ message: 'hello, world' });
+
+  const created = await fetch(port).post('/cart/items', { id: 'i1', name: 'widget' });
+  expect(created.status).toBe(201);
+  expect(created.data).toEqual({ data: { i1: { id: 'i1', name: 'widget' } } });
 
   await server.closeAsync();
 });
