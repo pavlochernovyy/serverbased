@@ -6,10 +6,14 @@
 Source: `lib/server-based.js`, `lib/context.provider.js`, `lib/compose.js`, `lib/function-registry-config.js`.
 
 ```js
+const path = require('path');
 const { serverBased } = require('./lib/server-based');
 
-serverBased({ title, purpose, version, handlers: [...] }).run();
+serverBased({ title, purpose, version, configPath: path.join(__dirname, 'serverbased.json') }).run();
 ```
+
+`configPath` is required — every route/middleware/plugin lives in a function module listed
+there, see [`server-based.md`](./server-based.md#function-registry-configpath).
 
 ## Sections
 
@@ -22,4 +26,4 @@ serverBased({ title, purpose, version, handlers: [...] }).run();
 
 ## Examples
 
-See `lib/server-based.test.js` for the raw standalone-`handlers`/`middlewares` API surface (global/per-handler middleware, route params, `origin`-type handlers, request body/query handling) — every `example/*` app now goes through `configPath`; `example/mini-store-app` for the plugin system (`CartPlugin`, `SalePlugin`); and `example/hello-world-app`/`example/time-tracking-app`/`example/markdown-app`/`example/todo-app`/`example/blog-app` for `configPath`/function-registry usage, including a function providing its own named plugin via context, a function overriding the default `store` plugin to seed its own state, and a function's own scoped `middlewares`.
+See `lib/server-based.test.js` for the fullest `handlers`/`middlewares`/`plugins` API surface (global/per-handler middleware, route params, `origin`-type handlers, request body/query handling) — it exercises `serverBased({ configPath })` against fixture function modules generated on the fly (`writeFunctionConfig`, `lib/test-fixtures.js`) rather than a real `example/*` app, since every route/middleware/plugin now lives inside a function module; `example/mini-store-app` for the plugin system (`CartPlugin`, `SalePlugin`); and `example/hello-world-app`/`example/time-tracking-app`/`example/markdown-app`/`example/todo-app`/`example/blog-app` for `configPath`/function-registry usage in real apps, including a function providing its own named plugin via context, a function overriding the default `store` plugin to seed its own state, and a function's own scoped `middlewares`.

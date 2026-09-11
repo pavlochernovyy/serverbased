@@ -4,13 +4,17 @@
 
 A tiny functional wrapper around Express that turns a declarative config object into
 a running HTTP server. Entry point: `serverBased(config).run()` in `lib/server-based.js`.
-A plugin system (`ContextProvider` + `serverBased`'s `plugins` config) lets per-app state
+Every route lives in a "function" module (`{ handlers, middlewares?, plugins? }`) listed
+in a `serverbased.json` file and loaded once at startup via `configPath` — `configPath` is
+required, and this is the only way to register routes (config-only composition, landed
+2026-09-11; standalone top-level `handlers`/`middlewares`/`plugins` were removed once every
+`example/*` app had migrated to this shape — see `docs/drafts/config-only-composition.task.md`).
+A plugin system (`ContextProvider` + a function's own `plugins` field) lets per-function state
 and behavior be attached onto the request context under a name (`context.<name>`), with a
 default `store` plugin (a `Map`) auto-injected for backward compatibility with
-`provideState`/`conductState`. A composition helper (`composeModules`, `lib/compose.js`)
-lets independently-authored feature modules (each `{ handlers, middlewares?, plugins? }`)
-be merged into one app. A function registry (`configPath` + `lib/function-registry-config.js`)
-mounts feature modules listed in a `serverbased.json` file, read once at startup.
+`provideState`/`conductState`. `composeModules` (`lib/compose.js`) is a second, older
+composition path with the same `{ handlers, middlewares?, plugins? }` module shape — still
+present, not yet load-bearing for any `example/*` app (see [`state/open-items.md`](./state/open-items.md)).
 
 ## Folders
 

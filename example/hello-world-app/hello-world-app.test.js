@@ -80,22 +80,15 @@ test("a function's own plugin instance is fresh per run() call — no state leak
   await serverB.closeAsync();
 });
 
-test('omitting configPath boots normally with no functions mounted', async () => {
-  const port = 8021;
-  const server = await serverBased({
-    title: 'plain app',
-    purpose: 'http api',
-    version: '1.0',
-    handlers: [],
-    runningPort: port,
-  }).run();
-
-  const response = await fetch(port)
-    .get('/greeter/hello/world')
-    .catch((error) => error.response);
-  expect(response.status).toBe(404);
-
-  await server.closeAsync();
+test('throws a ServerBasedError when configPath is omitted', () => {
+  expect(() =>
+    serverBased({
+      title: 'plain app',
+      purpose: 'http api',
+      version: '1.0',
+      runningPort: 8021,
+    })
+  ).toThrow('configPath parameter is required');
 });
 
 test('reaches both cart and greeter functions on the same running serverbased instance', async () => {

@@ -30,7 +30,7 @@ run(context) {
 
 ## Plugins
 
-`ContextProvider` can be extended with named plugin instances, passed via `serverBased`'s `plugins` config field (see [server-based.md](./server-based.md#plugins)). Each `{ name, plugin }` descriptor is instantiated once per `run()` call and exposed on the context under `name`:
+`ContextProvider` can be extended with named plugin instances, passed via a function module's own `plugins` field (see [server-based.md](./server-based.md#plugins) — every route now lives inside a function module listed in `serverbased.json`, there's no top-level `plugins` config on `serverBased(...)` itself). Each `{ name, plugin }` descriptor is instantiated once per `run()` call and exposed on the context under `name`:
 
 ```js
 class GreeterPlugin {
@@ -39,7 +39,7 @@ class GreeterPlugin {
   }
 }
 
-// serverBased({ ..., plugins: [{ name: 'greeter', plugin: GreeterPlugin }] })
+// module.exports = { handlers: [...], plugins: [{ name: 'greeter', plugin: GreeterPlugin }] };
 
 run(context) {
   context.provideReply({ message: context.greeter.greet('world') }).send();
@@ -50,21 +50,38 @@ A plugin instance is shared by every handler and every request of that app insta
 
 ## State (`provideState`/`conductState`)
 
-`provideState`/`conductState` are a thin wrapper around a plugin named `store` — a `Map`-like object exposing `get`/`set`. When the caller doesn't supply their own `store` plugin, `serverBased.run()` auto-injects a default one (a plain `Map`, defined in `lib/plugins/state-store.plugin.js`) — see `store` in `server-based.js`. This makes `provideState`/`conductState` a lightweight, app-scoped key/value store by default, shared by every handler and every request of that app instance — but isolated from any other `serverBased()` instance (e.g. different apps, or different test servers). Supplying your own `{ name: 'store', plugin: MyStoreClass }` (any class exposing `get`/`set`) overrides the default.
+`provideState`/`conductState` are a thin wrapper around a plugin named `store` — a `Map`-like object exposing `get`/`set`. When a function doesn't supply its own `store` plugin, `run()` auto-injects a default one (a plain `Map`, defined in `lib/plugins/state-store.plugin.js`) per function, per `run()` call — see "Default `store` plugin" in `server-based.js`. This makes `provideState`/`conductState` a lightweight, function-scoped key/value store by default, shared by every handler and every request within that function — but isolated from any other function (even in the same running app) and from any other `serverBased()` instance. Supplying your own `{ name: 'store', plugin: MyStoreClass }` (any class exposing `get`/`set`) overrides the default.
 
-There's no built-in seeding — reading a key that was never set returns `undefined`, so handlers typically seed lazily on first access:
+There's no built-in seeding on the default `store` — reading a key that was never set returns `undefined`. Two patterns exist depending on whether there's a meaningful starting value:
 
-```js
-const seedPosts = () => new Map([['1', { title: 'first post' }]]);
+- **No starting value to seed** (a counter, an initially-empty collection) — read lazily, falling back inline on first access:
 
-run(context) {
-  const posts = context.conductState('posts') || seedPosts();
-  context.provideState('posts', posts);
+  ```js
+  run(context) {
+    const posts = context.conductState('posts') || new Map();
+    context.provideState('posts', posts);
 
-  context.provideReply({ data: Object.fromEntries(posts) }).send();
-}
-```
+    context.provideReply({ data: Object.fromEntries(posts) }).send();
+  }
+  ```
 
-It's a generic in-memory scratch store, not a persistence layer — nothing survives a process restart. See `example/blog-app` (post storage plus a per-post view counter) and `example/todo-app` for it in use, and `lib/server-based.test.js` ("shares provideState/conductState across requests and handlers") for a minimal, storage-free demonstration.
+- **A real starting value to seed** — supply your own `store` plugin whose constructor pre-populates the key, so every handler can call `conductState(key)` directly without a fallback (see `example/todo-app`'s `TodoStorePlugin`/`example/blog-app`'s `BlogStorePlugin`, `functions/plugins/*.plugin.js`):
+
+  ```js
+  class PostsStorePlugin extends Map {
+    constructor() {
+      super([['posts', new Map([['1', { title: 'first post' }]])]]);
+    }
+  }
+
+  // module.exports = { handlers: [...], plugins: [{ name: 'store', plugin: PostsStorePlugin }] };
+
+  run(context) {
+    const posts = context.conductState('posts'); // always the seeded Map, no fallback needed
+    context.provideReply({ data: Object.fromEntries(posts) }).send();
+  }
+  ```
+
+It's a generic in-memory scratch store, not a persistence layer — nothing survives a process restart. See `example/blog-app` (seeded post storage plus a lazily-initialized per-post view counter — both patterns in one example) and `example/todo-app` for it in use, and `lib/server-based.test.js` ("shares provideState/conductState across requests and handlers") for a minimal, storage-free demonstration.
 
 **When composing modules** (see [compose.md](./compose.md)), all composed modules share one default `store` plugin unless a module supplies its own — `composeModules` merges `plugins` too and rejects two modules that register the same plugin `name`, so give each module's own state plugin a distinct name (e.g. `cart`, not `store`) to keep it isolated from other composed modules. Modules that rely on the shared default `store` still need distinct key names across modules you intend to compose together.

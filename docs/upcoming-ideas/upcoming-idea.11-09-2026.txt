@@ -26,3 +26,7 @@ including updated table in README.md's to list the park/ folder, or the API docs
 I reviewed, docs looks good to me;
 I added: "### Task state: Implemented" notion to: "app/exploring/packages/server-based/docs/upcoming-ideas/upcoming-idea.11-09-2026.txt"
 Btw, is there a shortcut in webstorm to copy path from repository's root?
+
+
+Okay, we did the most fundamental part right now, what should we do next?
+I think we need to delete api declared to serverbased, which is no more in usage?

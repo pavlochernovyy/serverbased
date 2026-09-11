@@ -13,13 +13,18 @@ Creates a server entity. Does not start listening — call `.run()` on the resul
 | `title`          | `string`   | yes      | —                      | throws `ServerBasedError` if missing |
 | `purpose`        | `string`   | yes      | —                      | throws `ServerBasedError` if missing |
 | `version`        | `string`   | yes      | —                      | throws `ServerBasedError` if missing |
+| `configPath`     | `string`   | yes      | —                      | path to a `serverbased.json` function-registry config, see [Function registry](#function-registry-configpath) below. Throws `ServerBasedError` if missing — **the only way to register routes** (config-only composition, 2026-09-11; standalone `handlers`/`middlewares`/`plugins` were removed from this config, see below) |
 | `runningPort`    | `number`   | no       | `8080`                 | port Express listens on |
 | `networkProtocol`| `string`   | no       | `'http'`               | only `'http'` is supported; any other value throws `ServerBasedError` |
 | `endpointType`   | `string`   | no       | `'server'`             | accepted values: `'server'`, `'client'`. **Not branched on in `run()` today** — has no observable effect |
-| `handlers`       | `array`    | no       | `[]`                    | array of handler configs, see below. Throws `ServerBasedError` if two handlers register the same `method`+`route` (via `assertNoDuplicateRoutes`, see below) |
-| `middlewares`    | `array`    | no       | `[]`                    | array of Express middleware functions `(req, res, next) => void`, applied globally in order, before any handler |
-| `plugins`        | `array`    | no       | `[]`                    | array of plugin descriptors `{ name, plugin }`, see [Plugins](#plugins) below |
-| `configPath`     | `string`   | no       | `undefined`             | path to a `serverbased.json` function-registry config, see [Function registry](#function-registry-configpath) below |
+
+**No top-level `handlers`/`middlewares`/`plugins`.** Every route, middleware, and plugin is
+declared inside a function module listed in `serverbased.json` — see
+[Function registry](#function-registry-configpath) below. This config shape (and `configPath`
+being required) landed 2026-09-11 as part of the config-only-composition migration — see
+`docs/drafts/config-only-composition.task.md` for the full rationale. `toHandler`/`toPlugin`
+(below) and their shapes are unchanged; they're just always invoked through a function module now,
+never directly against `serverBased(...)`'s own config.
 
 ### return value
 
@@ -28,11 +33,12 @@ An object exposing the resolved config plus:
 - `run()` — starts the Express server. Returns a `Promise<http.Server>` that resolves once the server is listening, and **rejects** if the underlying `http.Server` emits `'error'` before that (e.g. `EADDRINUSE` when `runningPort` is already in use) — always attach a `.catch(...)` (see the example apps' `require.main === module` blocks for the pattern). The resolved server has:
   - `closeAsync()` — `Promise<void>`, wraps `server.close()`, added for convenient teardown (used throughout the test suite).
 
-Also logs a metadata block (`title`, `purpose`, `version`, `handlers`) to console on `run()`, and one line per incoming request (`"<method> <route> invoked"`).
+Also logs a metadata block (`title`, `purpose`, `version`) and a "N function(s) mounted" line to
+console on `run()`, and one line per incoming request (`"<method> <route> invoked"`).
 
 ## `toPlugin(pluginConfig)`
 
-Normalizes and validates a raw plugin descriptor. Called internally by `run()` for every entry in `plugins`; also exported for direct use/testing.
+Normalizes and validates a raw plugin descriptor. Called internally by `loadFunctionRegistryConfig` for every entry in a function's own `plugins`; also exported for direct use/testing.
 
 | field    | type       | required | notes |
 |----------|------------|----------|-------|
@@ -41,17 +47,17 @@ Normalizes and validates a raw plugin descriptor. Called internally by `run()` f
 
 ## `toHandler(handlerConfig)`
 
-Normalizes and validates a raw handler object into the shape `serverBased` registers on Express. Called internally by `run()` for every entry in `handlers`; also exported for direct use/testing.
+Normalizes and validates a raw handler object into the shape `serverBased` registers on Express. Called internally by `loadFunctionRegistryConfig` for every entry in a function's own `handlers`; also exported for direct use/testing.
 
 ### handlerConfig
 
 | field         | type       | required | notes |
 |---------------|------------|----------|-------|
-| `route`       | `string`   | yes      | Express route path, e.g. `/posts/:postId`. Throws `HandlerError` if missing |
+| `route`       | `string`   | yes      | Express route path, relative to the function's own mount, e.g. `/:postId`. Throws `HandlerError` if missing |
 | `method`      | `string`   | yes      | HTTP verb, case-insensitive (`toHandler` lower-cases it). Throws `HandlerError` if missing |
 | `run`         | `function` | yes      | handler function — signature depends on `handlerType` (see below). Throws `HandlerError` if missing |
 | `handlerType` | `string`   | yes      | `'context'` or `'origin'`. Throws `HandlerError` if missing |
-| `middleware`  | `object`   | no       | optional per-handler middleware: `{ run(req, res, next) }`. Runs before this handler only, after global `middlewares` |
+| `middleware`  | `object`   | no       | optional per-handler middleware: `{ run(req, res, next) }`. Runs before this handler only, after that function's own `middlewares` |
 
 ### `handlerType`
 
@@ -60,7 +66,7 @@ Normalizes and validates a raw handler object into the shape `serverBased` regis
 
 ## `assertNoDuplicateRoutes(handlers, formatError)`
 
-Throws `formatError(routeKey)` (a caller-supplied factory, e.g. `(routeKey) => new ServerBasedError(...)`) on the first repeated `"<method> <route>"` key found in `handlers`. Used internally by `run()` for the app's own top-level `handlers`, and by `loadFunctionRegistryConfig` for each function's own `handlers` — the single implementation both the host app and every function's duplicate-route check share. Exported for direct use/testing.
+Throws `formatError(routeKey)` (a caller-supplied factory, e.g. `(routeKey) => new FunctionRegistryError(...)`) on the first repeated `"<method> <route>"` key found in `handlers`. Used by `loadFunctionRegistryConfig` for each function's own `handlers`. Exported for direct use/testing.
 
 ## `defaults` export
 
@@ -79,11 +85,31 @@ Note `networkProtocol.socket` and `endpointType.client` are declared enum values
 
 ## Minimal example
 
+Every app is `serverbased.json` + at least one function module (see
+[Function registry](#function-registry-configpath) below):
+
 ```js
+// index.js
+const path = require('path');
 const { serverBased } = require('./lib/server-based');
 
+serverBased({
+  title: 'ping service',
+  purpose: 'http api',
+  version: '1.0',
+  configPath: path.join(__dirname, 'serverbased.json'),
+}).run();
+```
+
+```json
+// serverbased.json
+{ "functions": { "ping": { "path": "./functions/ping.js", "route": "/ping" } } }
+```
+
+```js
+// functions/ping.js
 const handlerPing = {
-  route: '/ping',
+  route: '/',
   method: 'GET',
   handlerType: 'context',
   run(context) {
@@ -91,40 +117,34 @@ const handlerPing = {
   },
 };
 
-serverBased({
-  title: 'ping service',
-  purpose: 'http api',
-  version: '1.0',
-  handlers: [handlerPing],
-}).run();
+module.exports = { handlers: [handlerPing] };
 ```
 
 ## Registering custom middleware (logging example)
 
-Global middleware is any standard Express `(req, res, next) => void` function, passed via `middlewares` — it runs for every handler, in array order, before the route is matched:
+Middleware is any standard Express `(req, res, next) => void` function, listed in a function
+module's own `middlewares` — it runs for every route in that function only, in array order,
+before the route is matched (see `example/markdown-app/functions/quote.js` for a working
+example):
 
 ```js
+// functions/ping.js
 const loggingMiddleware = (req, res, next) => {
   console.log(`${req.method} ${req.originalUrl} — incoming`);
   next();
 };
 
-serverBased({
-  title: 'ping service',
-  purpose: 'http api',
-  version: '1.0',
-  handlers: [handlerPing],
-  middlewares: [loggingMiddleware],
-}).run();
+module.exports = { handlers: [handlerPing], middlewares: [loggingMiddleware] };
 ```
 
-Per-handler middleware follows the same `(req, res, next)` shape, wrapped in `{ run }` and attached to a single handler via its `middleware` field (see `handlerConfig` above) — it runs after global `middlewares`, only for that route.
+Per-handler middleware follows the same `(req, res, next)` shape, wrapped in `{ run }` and attached to a single handler via its `middleware` field (see `handlerConfig` above) — it runs after that function's own `middlewares`, only for that route.
 
 ## Plugins
 
-`plugins` is an array of `{ name, plugin }` descriptors, where `plugin` is a **class**, not an instance — `run()` instantiates every plugin fresh on each call (`new plugin()`), so separate app instances (different apps, or different test servers started from the same config) never share plugin state. Each instance is exposed on every `context`-type handler's `ContextProvider` under `name`, see [context-provider.md](./context-provider.md#plugins):
+A function module's own `plugins` is an array of `{ name, plugin }` descriptors, where `plugin` is a **class**, not an instance — `run()` instantiates every plugin fresh on each call (`new plugin()`), so separate app instances (different apps, or different test servers started from the same config) never share plugin state, and each function's plugin instances are isolated from every other function's. Each instance is exposed on every `context`-type handler's `ContextProvider` under `name`, see [context-provider.md](./context-provider.md#plugins):
 
 ```js
+// functions/greet.js
 class GreeterPlugin {
   greet(name) {
     return `hello, ${name}`;
@@ -132,7 +152,7 @@ class GreeterPlugin {
 }
 
 const handlerGreet = {
-  route: '/greet/:name',
+  route: '/:name',
   method: 'GET',
   handlerType: 'context',
   run(context) {
@@ -141,18 +161,12 @@ const handlerGreet = {
   },
 };
 
-serverBased({
-  title: 'ping service',
-  purpose: 'http api',
-  version: '1.0',
-  handlers: [handlerGreet],
-  plugins: [{ name: 'greeter', plugin: GreeterPlugin }],
-}).run();
+module.exports = { handlers: [handlerGreet], plugins: [{ name: 'greeter', plugin: GreeterPlugin }] };
 ```
 
-Throws `ServerBasedError` if two plugin descriptors share the same `name`, or if a descriptor is missing `name`/`plugin` (validated by `toPlugin`, see below).
+Throws `FunctionRegistryError` if two plugin descriptors within the same function share the same `name`, or `ServerBasedError` if a descriptor is missing `name`/`plugin` (validated by `toPlugin`, see above).
 
-A default plugin named `store` (a plain `Map`, see `lib/plugins/state-store.plugin.js`) is auto-appended when no `store`-named plugin is supplied — this is what backs `context.provideState`/`conductState` (see [context-provider.md](./context-provider.md#state-providestateconductstate)). Supply your own `{ name: 'store', plugin: MyStoreClass }` to override it.
+A default plugin named `store` (a plain `Map`, see `lib/plugins/state-store.plugin.js`) is auto-appended when no `store`-named plugin is supplied — this is what backs `context.provideState`/`conductState` (see [context-provider.md](./context-provider.md#state-providestateconductstate)). Supply your own `{ name: 'store', plugin: MyStoreClass }` to override it — see `example/todo-app`/`example/blog-app` for a function seeding its own initial state this way.
 
 ## Operating without a context (`handlerType: 'origin'`)
 
@@ -168,21 +182,16 @@ const handlerOriginPing = {
   },
 };
 
-serverBased({
-  title: 'ping service',
-  purpose: 'http api',
-  version: '1.0',
-  handlers: [handlerOriginPing],
-}).run();
+module.exports = { handlers: [handlerOriginPing] };
 ```
 
 See `lib/server-based.test.js` ("server-based can register handlers with context or origin type") for a side-by-side `context` vs `origin` handler on the same server. Remember: only synchronous throws from an `origin` handler reach `runtimeErrorHandlingMiddleware` — an `async run(req, res)` that rejects is not caught.
 
-See `lib/server-based.test.js` for fuller standalone-`handlers` usage (global/per-handler middleware, route params, `origin`-type handlers, request body/query handling) — every `example/*` app now goes through `configPath`; `example/markdown-app`/`example/todo-app`/`example/blog-app` for the same per-handler middleware and a function's own scoped `middlewares` via `configPath` — `todo-app` and `blog-app` also override the default `store` plugin (see [Plugins](#plugins) above) to seed their own state at construction time.
+See `lib/server-based.test.js` for the fullest coverage of this API surface (global/per-handler middleware, route params, `origin`-type handlers, request body/query handling) — it exercises `serverBased({ configPath })` against generated fixture modules (`writeFunctionConfig`, `lib/test-fixtures.js`) rather than any `example/*` app, since every example app now demonstrates one particular pattern rather than the full surface; `example/markdown-app`/`example/todo-app`/`example/blog-app` for the same per-handler middleware and a function's own scoped `middlewares` in a real app — `todo-app` and `blog-app` also override the default `store` plugin (see [Plugins](#plugins) above) to seed their own state at construction time.
 
 ## Function registry (`configPath`)
 
-`configPath` points `run()` at a `serverbased.json` file listing independently-authored "functions" — each shaped like a regular feature module (`{ handlers, middlewares?, plugins? }`, same as what `composeModules` consumes) — to be mounted alongside the app's own `handlers`. Loaded via `lib/function-registry-config.js` (`loadFunctionRegistryConfig`), a small module kept separate from `server-based.js` the same way `compose.js` is.
+`configPath` points `run()` at a `serverbased.json` file listing independently-authored "functions" — each shaped like a regular feature module (`{ handlers, middlewares?, plugins? }`, same shape `composeModules` also consumes) — mounted on their own `express.Router()`. This is the **only** way to register routes on a `serverBased(...)` app (required field, see the config table above). Loaded via `lib/function-registry-config.js` (`loadFunctionRegistryConfig`), a small module kept separate from `server-based.js` the same way `compose.js` is.
 
 Read **once**, at startup, inside `run()` — no filesystem watching, no runtime add/remove/enable/disable. Adding, removing, or editing a function means editing `serverbased.json` and restarting the process.
 
@@ -198,14 +207,12 @@ Read **once**, at startup, inside `run()` — no filesystem watching, no runtime
 ```
 
 - `path` — resolved relative to the location of `serverbased.json` itself (not `process.cwd()`), then `require`d.
-- `route` — mount prefix for that function's own routes: a handler registered at `GET /hello/:name` inside `greet.js` becomes reachable at `GET /greeter/hello/:name`.
-- Each function gets its own `express.Router()`, its own fresh plugin instances (same instantiate-per-`run()` semantics as the app's own `plugins`), and its own middleware, applied only within that function's mount — isolated from the host app and from other functions. This includes the default `store` plugin: a function that doesn't declare its own `store`-named plugin gets one auto-appended, exactly like the host app's own `handlers` do — its own fresh `Map`, so `provideState`/`conductState` inside a function's handlers work unchanged, but never share state with the host's or another function's store. A function that needs another function's data calls that function's own route over HTTP rather than reaching into its store — see `example/time-tracking-app/functions/reports.js`, `example/mini-store-app/functions/sale.js`, and the `fetchJson` export below.
-
-Omitting `configPath` leaves `run()`'s behavior identical to before this feature existed.
+- `route` — mount prefix for that function's own routes: a handler registered at `GET /hello/:name` inside `greet.js` becomes reachable at `GET /greeter/hello/:name`. Every function's own handler routes are self-contained (never assume a `"/"` root mount) — the mount prefix always lives in `serverbased.json`'s `route` field, not duplicated in the function's own route strings.
+- Each function gets its own `express.Router()`, its own fresh plugin instances (instantiate-per-`run()` semantics), and its own middleware, applied only within that function's mount — isolated from every other function. This includes the default `store` plugin: a function that doesn't declare its own `store`-named plugin gets one auto-appended — its own fresh `Map`, so `provideState`/`conductState` inside a function's handlers work unchanged, but never share state with another function's store. A function that needs another function's data calls that function's own route over HTTP rather than reaching into its store — see `example/time-tracking-app/functions/reports.js`, `example/mini-store-app/functions/sale.js`, and the `fetchJson` export below.
 
 ### `fetchJson(url)`
 
-Small dependency-free GET-JSON helper exported for exactly the cross-function-HTTP pattern above — one function's handler reading another function's (or the host app's) route:
+Small dependency-free GET-JSON helper exported for exactly the cross-function-HTTP pattern above — one function's handler reading another function's route:
 
 ```js
 const { fetchJson } = require('./lib/server-based');
@@ -217,8 +224,9 @@ Returns a `Promise` resolving with the parsed JSON response body, or rejecting o
 
 ### Failure/collision handling — fails fast at startup, same posture as `compose.js`'s duplicate-route check
 
+- `configPath` missing from `serverBased(...)`'s own config — throws `ServerBasedError` immediately (`configPath` is required, see the config table above).
 - `configPath` given but the file doesn't exist, or `functions` is empty/absent — not an error: one `console.log` line, zero functions mounted, boot continues normally.
-- A function entry missing `path` or `route`, a `path` that fails to `require`, or a function's own `handlers` containing a duplicate method+route — throws `FunctionRegistryError` (extends `ServerBasedError`) before `app.listen`.
-- Two functions sharing the same `route`, or a function's `route` colliding with one of the host app's own handler routes — throws `ServerBasedError` before `app.listen`.
+- A function entry missing `path` or `route`, a `path` that fails to `require`, a function's own `handlers` containing a duplicate method+route, or a function's own `plugins` sharing a `name` — throws `FunctionRegistryError` (extends `ServerBasedError`) before `app.listen`.
+- Two functions sharing the same `route` — throws `FunctionRegistryError` before `app.listen` (checked inside the loader itself, before any function module is even `require`d).
 
 See `example/hello-world-app` (renamed 2026-09-11, was `example/function-registry`) for a full working example, and `lib/function-registry-config.test.js` for the loader's fail-fast cases.

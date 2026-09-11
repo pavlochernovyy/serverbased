@@ -545,3 +545,72 @@ plain path substitution only, left `example/combined-mini-store-blog` (a differe
 deleted example's name, still mentioned as historical context in `docs/park/router-based-mounting.md`)
 untouched since it's an unrelated string, not a reference to the renamed directory. Full suite
 green: 14 suites / 81 tests (unchanged — pure rename, no behavior change).
+
+### Follow-up — `example/markdown-app`'s `title` renamed to match its folder (2026-09-11)
+
+`index.js`/`markdown-app.test.js` still said `title: 'quote making app'`, left over from before
+the folder was named `markdown-app` — didn't match the `-app`-suffixed title convention every
+other example now follows (`'todo app'`, `'blog app'`, `'mini-store app'`, `'hello world app'`).
+Updated both to `'markdown app'`. No other references existed. Full suite green: 14 suites / 81
+tests (unchanged — pure rename, no behavior change).
+
+## Decision 1 landed — config-only composition is now the only API (2026-09-11)
+
+With every `example/*` app migrated (see the Migration log above) and no example depending on the
+standalone `handlers`/`middlewares`/`plugins` config, `lib/server-based.js` was cut over:
+
+- **`serverBased(config)`** no longer accepts `handlers`/`middlewares`/`plugins` at all — dropped
+  from the destructured config, the returned object, and `run()`'s own registration logic.
+  `configPath` is now **required** (`serverBased(...)` throws `ServerBasedError` if missing, same
+  posture as `title`/`purpose`/`version`).
+- **`run()`** dropped its entire top-level plugin-instantiation block, its top-level middleware
+  loop, and its top-level `handlers.map(toHandler)`/`assertNoDuplicateRoutes`/`registerHandlers`
+  pass — the function-mounting loop (already there for `configPath`) is now the *only* routing
+  pass. `traceServerBasedMetaData` dropped its `handlers` log line (nothing to log at that level
+  any more) and gained a `"N function(s) mounted"` line instead.
+- **Dead code found and removed while doing this**: the function loop's own `seenRoutes`
+  duplicate-route check in `server-based.js` turned out to be unreachable — `loadFunctionRegistryConfig`
+  already guarantees every returned function entry has a unique `route` (it throws before
+  returning otherwise), so the check in `run()` could never trigger. Removed it, with a comment
+  explaining why no replacement check is needed there.
+- **Real gap found and fixed, not just removed**: dropping the top-level `plugins` loop also
+  dropped the only place a duplicate-plugin-name check existed. Since a function's own `plugins`
+  is now the *only* way to supply plugins, restored equivalent coverage inside
+  `lib/function-registry-config.js` (`loadFunctionRegistryConfig`), next to the existing
+  duplicate-route check — throws `FunctionRegistryError` on two plugins sharing a `name` within
+  one function's own `plugins` array. Added a unit test for it in
+  `lib/function-registry-config.test.js`.
+- **Test suite rewrite**: `lib/server-based.test.js` (16 tests), `lib/error-handling.test.js`
+  (5 tests), and `lib/context.provider.test.js` (1 test) all called `serverBased({ handlers,
+  middlewares, plugins })` directly — none of that shape exists any more. Added
+  `writeFunctionConfig(source, { route, id })` to `lib/test-fixtures.js` — writes a function
+  module (raw JS source, since `function-registry-config.js` `require`s it from a real file) plus
+  a `serverbased.json` pointing at it under a fresh temp dir (same `fs.mkdtempSync` pattern
+  `function-registry-config.test.js` already used), returns the resulting `configPath`. Every
+  rewritten test now boots `serverBased({ configPath })` against a generated fixture instead of
+  passing handlers/middlewares/plugins directly — same assertions, same HTTP-level behavior
+  verified, just routed through the sole remaining API. `context.provider.test.js`'s one test was
+  also a genuine bug fix in passing: its assertions lived inside a handler that was never actually
+  invoked (no HTTP request was ever sent to trigger it, and it used Chai's `.to.be.a(...)` syntax
+  which isn't valid against Jest's `expect` — so it would have thrown if it had ever run). Rewrote
+  it to send a real request and use throw-based assertions instead.
+- **`example/hello-world-app`'s "omitting configPath boots normally" test** no longer made sense
+  (that behavior is gone by design) — replaced with a test asserting `serverBased(...)` throws
+  `ServerBasedError` when `configPath` is omitted.
+- **Docs rewritten** to match the new API surface: `docs/api/server-based.md` (config table,
+  minimal example, middleware/plugin sections, function-registry section — substantial rewrite),
+  `docs/api/context-provider.md` (plugins section, `provideState`/`conductState` seeding section —
+  now documents both the lazy-fallback pattern and the seed-via-custom-plugin pattern side by
+  side), `docs/api/errors.md` (error-cause table, export list, timing note), `docs/state/core.md`
+  (Core factory/Plugin system/Function registry sections), `docs/README.md` (top overview),
+  `docs/api/README.md` (intro snippet and Examples line), `docs/state/examples-and-tests.md`
+  (test-file descriptions), `docs/state/open-items.md` (Function registry entry reworded to
+  describe current — not historical — behavior, with a note marking the "host app" framing in the
+  friction-discovery sub-bullet as historical).
+- Full suite green: 14 suites / 84 tests (net +3 vs. before this — the new required-field test,
+  the duplicate-plugin-name-in-one-function test, and the function-registry-config duplicate-
+  plugin-name unit test).
+
+**Remaining before Decision 2** (deleting `composeModules`/`lib/compose.js` outright): nothing
+blocks it from the example side — no `example/*` app uses `composeModules` either. It's simply the
+next, separate piece of cleanup, not yet started.
