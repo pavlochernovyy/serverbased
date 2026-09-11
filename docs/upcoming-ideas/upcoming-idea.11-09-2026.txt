@@ -30,3 +30,8 @@ Btw, is there a shortcut in webstorm to copy path from repository's root?
 
 Okay, we did the most fundamental part right now, what should we do next?
 I think we need to delete api declared to serverbased, which is no more in usage?
+
+Separate context from logs, for example, in: "/Users/pavlochernovyy/Documents/Development/Personal/common-modules/app/exploring/packages/server-based/docs/drafts/config-only-composition.task.md" file
+we do draft a solution. I need you to make a new file with name: "config-only-composition.task.log.md" and place all logs relative details to it.
+The original file can only contain a proper references to the logs when needed.
+Follow the same pattern throw the /docs folder for each file.

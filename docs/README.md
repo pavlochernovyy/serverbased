@@ -22,7 +22,7 @@ once no `example/*` app depended on it any more (see `docs/drafts/config-only-co
 |--------|---------|
 | [`api/`](./api/README.md) | API reference — function signatures, params, return values |
 | [`state/`](./state/) | current state of the system — what exists and why (see below) |
-| [`drafts/`](./drafts/) | design write-ups for a specific piece of work, in progress or completed (e.g. [`function-registry.task.md`](./drafts/function-registry.task.md)) |
+| [`drafts/`](./drafts/) | design write-ups for a specific piece of work, in progress or completed (e.g. [`function-registry.task.md`](./drafts/function-registry.task.md)). A draft with heavy execution history splits its dated log entries into a sibling `<name>.task.log.md` (e.g. [`config-only-composition.task.md`](./drafts/config-only-composition.task.md) + [`config-only-composition.task.log.md`](./drafts/config-only-composition.task.log.md)), keeping the draft itself readable as design/decisions only |
 | [`park/`](./park/) | postponed/parked items — the full idea, why it was postponed, a solution sketch, open questions. Pointed to from [`state/open-items.md`](./state/open-items.md). Currently: [`router-based-mounting.md`](./park/router-based-mounting.md), [`per-module-middleware-isolation.md`](./park/per-module-middleware-isolation.md) |
 | [`upcoming-ideas/`](./upcoming-ideas/) | dated scratch notes (`upcoming-idea.<DD-MM-YYYY>.txt`), one per working session — informal, not curated like the rest of `docs/` |
 
