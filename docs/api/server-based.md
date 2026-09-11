@@ -221,4 +221,4 @@ Returns a `Promise` resolving with the parsed JSON response body, or rejecting o
 - A function entry missing `path` or `route`, a `path` that fails to `require`, or a function's own `handlers` containing a duplicate method+route — throws `FunctionRegistryError` (extends `ServerBasedError`) before `app.listen`.
 - Two functions sharing the same `route`, or a function's `route` colliding with one of the host app's own handler routes — throws `ServerBasedError` before `app.listen`.
 
-See `example/function-registry` for a full working example, and `lib/function-registry-config.test.js` for the loader's fail-fast cases.
+See `example/hello-world-app` (renamed 2026-09-11, was `example/function-registry`) for a full working example, and `lib/function-registry-config.test.js` for the loader's fail-fast cases.

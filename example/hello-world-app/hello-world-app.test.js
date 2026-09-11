@@ -14,7 +14,7 @@ const { serverBased } = require('../../lib/server-based');
 test('mounts a function listed in serverbased.json under its configured route', async () => {
   const port = 8020;
   const server = await serverBased({
-    title: 'function registry app',
+    title: 'hello world app',
     purpose: 'http api',
     version: '1.0',
     handlers: [],
@@ -32,7 +32,7 @@ test('mounts a function listed in serverbased.json under its configured route', 
 test("a function's own named plugin is reachable via context, in-process (not HTTP)", async () => {
   const port = 8026;
   const server = await serverBased({
-    title: 'function registry app',
+    title: 'hello world app',
     purpose: 'http api',
     version: '1.0',
     handlers: [],
@@ -53,7 +53,7 @@ test("a function's own named plugin is reachable via context, in-process (not HT
 test("a function's own plugin instance is fresh per run() call — no state leaks across app instances", async () => {
   const portA = 8027;
   const serverA = await serverBased({
-    title: 'function registry app',
+    title: 'hello world app',
     purpose: 'http api',
     version: '1.0',
     handlers: [],
@@ -65,7 +65,7 @@ test("a function's own plugin instance is fresh per run() call — no state leak
 
   const portB = 8028;
   const serverB = await serverBased({
-    title: 'function registry app',
+    title: 'hello world app',
     purpose: 'http api',
     version: '1.0',
     handlers: [],
@@ -101,7 +101,7 @@ test('omitting configPath boots normally with no functions mounted', async () =>
 test('reaches both cart and greeter functions on the same running serverbased instance', async () => {
   const port = 8029;
   const server = await serverBased({
-    title: 'function registry app',
+    title: 'hello world app',
     purpose: 'http api',
     version: '1.0',
     handlers: [],

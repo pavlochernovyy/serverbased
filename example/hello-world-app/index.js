@@ -3,7 +3,7 @@ const { serverBased } = require('../../lib/server-based');
 
 if (require.main === module) {
   serverBased({
-    title: 'function registry app',
+    title: 'hello world app',
     purpose: 'http api',
     version: '1.0',
     handlers: [],
@@ -11,7 +11,7 @@ if (require.main === module) {
   })
     .run()
     .catch((error) => {
-      console.error('function registry app failed to start:', error.message);
+      console.error('hello world app failed to start:', error.message);
       process.exit(1);
     });
 }

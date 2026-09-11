@@ -512,3 +512,21 @@ seeded EntriesStorePlugin/ProjectsStorePlugin instances — no state leaks acros
 `docs/state/examples-and-tests.md` (example description now distinguishes the two scoped-seed
 plugins from `/reports`' unseeded default store; test-row description updated). Full suite green:
 14 suites / 81 tests (one net new test).
+
+### Follow-up — `example/function-registry` renamed to `example/hello-world-app` (2026-09-11)
+
+The name "function-registry" was the example's original purpose (demonstrating the `configPath`
+mechanism as an additive extra alongside standalone `handlers`), but that framing is stale now
+that every example app goes through `configPath` — it's no longer a special/additive mode worth
+naming an example after (see Decision 1's framing earlier in this doc). Renamed the directory
+(`example/function-registry` → `example/hello-world-app`) and its test file
+(`function-registry.test.js` → `hello-world-app.test.js`), and updated the `title`/error-log
+strings in `index.js` and the test file from `'function registry app'` to `'hello world app'`.
+**Scoped narrowly**: only this example directory and its own internal strings changed — the
+"function registry" *feature* itself (`lib/function-registry-config.js`, `FunctionRegistryError`,
+the `configPath` mechanism, and every doc describing that feature) keeps its name unchanged; only
+doc references pointing at the now-renamed example path were updated (`docs/state/core.md`,
+`docs/state/examples-and-tests.md`, `docs/state/open-items.md`, `docs/api/server-based.md`,
+`docs/api/README.md`), each noting "renamed 2026-09-11, was `example/function-registry`" so the
+history stays traceable. Full suite green: 14 suites / 81 tests (unchanged — pure rename, no
+behavior change).
