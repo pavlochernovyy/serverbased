@@ -22,4 +22,4 @@ serverBased({ title, purpose, version, handlers: [...] }).run();
 
 ## Examples
 
-See `example/todo-app`, `example/markdown-app`, `example/blog-app` for single-module usage (global/per-handler middleware, route params, `origin`-type handlers, request body/query handling); `example/mini-store` for the plugin system (`CartPlugin`, `SalePlugin`); and `example/combined-2-apps`/`example/combined-3-apps`/`example/combined-mini-store-blog` for `composeModules` in action, the last composing named plugins alongside the default `store` plugin.
+See `example/todo-app`, `example/markdown-app`, `example/blog-app` for single-module usage (global/per-handler middleware, route params, `origin`-type handlers, request body/query handling); `example/mini-store` for the plugin system (`CartPlugin`, `SalePlugin`); and `example/function-registry`/`example/time-tracking-app` for `configPath`/function-registry usage, including a function providing its own named plugin via context.

@@ -2,20 +2,7 @@
 // as context.cart inside its own handlers — same mechanism serverBased()'s top-level `plugins`
 // already uses (see lib/server-based.js's registerHandlers/injectContext), just wired through
 // the function loop instead. In-process, via context — not an HTTP call to another route.
-class CartPlugin {
-  constructor() {
-    this._items = new Map();
-  }
-
-  addItem(item) {
-    this._items.set(`${item.id}`, item);
-    return this.getItems();
-  }
-
-  getItems() {
-    return Object.fromEntries(this._items);
-  }
-}
+const { CartPlugin } = require('./plugins/cart.plugin');
 
 const handlerAddItem = {
   route: '/items',

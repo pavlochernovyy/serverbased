@@ -14,9 +14,7 @@ Creates a server entity. Does not start listening — call `.run()` on the resul
 | `purpose`        | `string`   | yes      | —                      | throws `ServerBasedError` if missing |
 | `version`        | `string`   | yes      | —                      | throws `ServerBasedError` if missing |
 | `runningPort`    | `number`   | no       | `8080`                 | port Express listens on |
-| `runningMode`    | `string`   | no       | `'server'`             | accepted values: `'server'`, `'lambda'`. **Not branched on in `run()` today** — has no observable effect |
 | `networkProtocol`| `string`   | no       | `'http'`               | only `'http'` is supported; any other value throws `ServerBasedError` |
-| `routerEngine`   | `string`   | no       | `'express'`            | accepted value: `'express'`. **Not branched on** — Express is used unconditionally regardless of this field |
 | `endpointType`   | `string`   | no       | `'server'`             | accepted values: `'server'`, `'client'`. **Not branched on in `run()` today** — has no observable effect |
 | `handlers`       | `array`    | no       | `[]`                    | array of handler configs, see below. Throws `ServerBasedError` if two handlers register the same `method`+`route` (via `assertNoDuplicateRoutes`, see below) |
 | `middlewares`    | `array`    | no       | `[]`                    | array of Express middleware functions `(req, res, next) => void`, applied globally in order, before any handler |
@@ -71,15 +69,13 @@ Enum-like object of accepted values, importable for reference/validation:
 ```js
 {
   runningPort: 8080,
-  runningMode: { server: 'server', lambda: 'lambda' },
   networkProtocol: { http: 'http', socket: 'socket' },
-  routerEngine: { express: 'express' },
   endpointType: { server: 'server', client: 'client' },
   handlerType: { context: 'context', origin: 'origin' },
 }
 ```
 
-Note `networkProtocol.socket`, `runningMode.lambda`, and `endpointType.client` are declared enum values with no corresponding implementation — see the "not branched on" notes above.
+Note `networkProtocol.socket` and `endpointType.client` are declared enum values with no corresponding implementation — see the "not branched on" notes above. `runningMode` and `routerEngine` were removed (2026-09-11) — both were accepted but never branched on.
 
 ## Minimal example
 

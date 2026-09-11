@@ -85,11 +85,11 @@ for the bug that triggered the realization. Reproduced here as the origin of dec
   fail-fast on bad shape/missing file/duplicate route, isolated plugin instances). No design
   changes expected here, just becomes load-bearing for 100% of routing instead of an additive
   extra.
-- **Needs a decision (see Open questions)**: whether a function's `route` can be `"/"` or `""` to
-  mean "mount at the app's own root, no prefix" — needed so a migrated app whose original routes
-  had no prefix (e.g. `todo-app`'s `/todo`, `/todo/:todoId` are already self-prefixed, but some
-  apps might have routes like `/` or unprefixed collections) keeps identical URLs after migration.
-  Today's loader requires a truthy `route`; `""` fails that check.
+- **Resolved (see Open question #1 below)**: no root-mount (`"/"`/`""`) special case. Every
+  function's own handler routes stay self-contained (e.g. `todo-app` keeps `/todo`,
+  `/todo/:todoId`), and the function's `route` in `serverbased.json` is always an explicit,
+  deliberate prefix — same as `cart`/`greeter`/`projects`/`reports` already work. The loader's
+  existing truthy-`route` requirement stays as-is.
 
 ### `lib/compose.js`, `lib/compose.test.js`
 
@@ -200,6 +200,72 @@ Concrete mapping for today's examples (draft — to confirm per-app in follow-up
    even before this change (see `state/core.md`). Does this migration finally remove them (dead
    config surface, arguably more dead than `composeModules` was), or stay out of scope and get
    tracked separately?
+
+
+## Answers to open questions
+
+Regarding point #1: Provide simpler explanation, I can not understand why do we need "/" route if we specifically assign functions per route in serverbased.json file;
+Regarding point #2: Delete those apps named as "combined...";
+Add "/function-registry/functions/plugins/" folder, place CartPlugin within, require it in cart.js function, make sure tests are green;
+Regarding point #3: Split into multi functions following same folders convention as to "function-registry" sample, Use http in function, which needs to get data from the outside function's plugin;
+Regarding point #4: no need to perform any actions, as I monitor the process, and do commit the changes with necessary steps after (we will do the steps one by one, not the whole migration at once);
+Regarding point #5: remove `runningMode` and `routerEngine` options from the serverbased api as well as update tests correspondingly;
+
+### Resolution — point #1, closed (2026-09-11)
+
+Point #1 asked *why* a root-mount route (`"/"`/`""`) would ever be needed at all, given every
+function already gets an explicit `route` in `serverbased.json`. Confirmed: **no root-mount
+special case** — every function's own handler routes stay self-contained (e.g. `todo-app`
+migrates with its handlers still declaring `/todo`, `/todo/:todoId`, not `/`), and the function's
+`route` in `serverbased.json` is whatever prefix is wanted, same as
+`cart`/`greeter`/`projects`/`reports` already do — that's how the framework knows where each
+function is mounted. No `"/"`/`""` special case needed in `lib/function-registry-config.js`; the
+"needs a decision" note under `lib/function-registry-config.js` in the Solution draft above is
+now resolved (functionally unchanged, no new code path required there).
+
+### Resolution — point #2, done (2026-09-11)
+
+- Deleted `example/combined-2-apps`, `example/combined-3-apps`, `example/combined-mini-store-blog`
+  (`index.js` + test file each) — nothing else referenced them at the code level.
+- Added `example/function-registry/functions/plugins/cart.plugin.js` (moved `CartPlugin` out of
+  `cart.js` into its own file, under a `plugins/` folder — same convention `example/mini-store`
+  already uses for `cart.plugin.js`/`sale.plugin.js`), `cart.js` now `require`s it.
+- Updated docs to match: `docs/state/examples-and-tests.md` (dropped the three deleted
+  examples/tests, updated the `function-registry` example/test rows), `docs/api/README.md`
+  (dropped the `combined-*` mention from the Examples line).
+- Full suite green: 13 suites / 73 tests (was 16/80 before the deletions).
+
+### Resolution — point #3, recorded, not yet actioned
+
+Decision recorded for when example migration actually starts (per point #4 below, not this
+turn): `mini-store` splits into two functions — `functions/cart.js` (its own `CartPlugin`) and
+`functions/sale.js` (its own `SalePlugin`) — same `example/function-registry` folder convention.
+`sale`'s `calculateTotal` needs `cart`'s items today (`context.sale.calculateTotal(items)` is
+called with items already fetched via `context.cart.getItems(cartId)` in the same handler) — once
+split into two functions, `sale`'s function calls `cart`'s own HTTP route to get the items it
+totals, rather than the current single-handler in-process call. Not implemented yet.
+
+### Resolution — point #4, acknowledged
+
+No action taken on cadence itself — confirms the migration proceeds step by step, with commits
+between steps, not as one large cutover. This turn's actions (points #2 and #5) are examples of
+that cadence in practice.
+
+### Resolution — point #5, done (2026-09-11)
+
+- `lib/server-based.js`: removed `runningMode` and `routerEngine` from `defaults`, from
+  `serverBased(...)`'s destructured config, and from its returned object. `networkProtocol` and
+  `endpointType` are untouched (still declared, still unused/not-branched-on where already true —
+  not part of this request).
+- `lib/server-based.test.js`: removed `runningMode`/`routerEngine` from the factory-defaults test
+  (`"server-based creates own entity successfully"`).
+- Docs updated to match: `docs/state/core.md` (dropped the `routerEngine` bullet, reworded the
+  `runningMode`/`endpointType` bullet, noted the removal), `docs/api/server-based.md` (dropped
+  both rows from the config table and both fields from the `defaults` export block, reworded the
+  trailing note), `docs/state/open-items.md` (dropped the now-stale "`runningMode`/`routerEngine`
+  enums remain untouched/unused" clause from the Function registry entry).
+- Full suite green (same 13/73 run as point #2 above — both landed together).
+
 
 ## Phase 0 — verified: functions can already provide their own plugins via context
 

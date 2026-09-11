@@ -5,8 +5,8 @@
 **Core factory (`serverBased`)**
 - Validates required top-level fields: `title`, `purpose`, `version`.
 - Only supports `networkProtocol: 'http'` (throws otherwise) — socket protocol is a stubbed default, not built.
-- Only `routerEngine: 'express'` exists; the field is accepted but not branched on.
-- `runningMode` (`server`/`lambda`) and `endpointType` (`server`/`client`) are declared as enums in `defaults` but unused in `run()` — no lambda packaging, no client-mode behavior yet.
+- `endpointType` (`server`/`client`) is declared as an enum in `defaults` but unused in `run()` — no client-mode behavior yet.
+- `runningMode` and `routerEngine` were removed from the config/`defaults` (2026-09-11) — both were accepted but never branched on (no lambda packaging ever existed, Express was the only router engine). See [open-items.md](./open-items.md).
 - `run()`:
   - boots Express with `express.json()`, `express.urlencoded()`, disables `x-powered-by`.
   - applies global `middlewares` array in order.
@@ -40,7 +40,7 @@
 - See [context-provider.md#plugins](../api/context-provider.md#plugins) and [server-based.md#plugins](../api/server-based.md#plugins) for the full API surface, and `example/mini-store` (`CartPlugin`, `SalePlugin`) for a from-scratch example of writing your own plugin.
 
 **Function registry (`configPath` + `lib/function-registry-config.js`)**
-- New, optional top-level `configPath` field on `serverBased(...)`. When present, `run()` calls `loadFunctionRegistryConfig(configPath)` (a small module kept separate from `server-based.js`, mirroring the `compose.js` split) before `app.listen`, and mounts the result alongside the app's own `handlers` — additive, not a mode switch. `runningMode`/`routerEngine` are untouched by this.
+- New, optional top-level `configPath` field on `serverBased(...)`. When present, `run()` calls `loadFunctionRegistryConfig(configPath)` (a small module kept separate from `server-based.js`, mirroring the `compose.js` split) before `app.listen`, and mounts the result alongside the app's own `handlers` — additive, not a mode switch.
 - Each function gets the same default-`store`-when-not-supplied treatment the host app's own `plugins` get — its own fresh `Map` instance per function, per `run()` call, isolated from the host's store and every other function's store. Deliberate: a function's store simulates its own database, the way a real microservice owns its own; cross-function data access goes through the owning function's/app's own HTTP route, not shared memory — see `example/time-tracking-app/functions/reports.js` and [open-items.md](./open-items.md).
 - `serverbased.json` lists functions as `{ "<id>": { "path": "...", "route": "..." } }`. Each function is a plain module exporting `{ handlers, middlewares?, plugins? }` — the same shape `composeModules` already consumes — `require`d once at startup (`path` resolved relative to the config file), mounted on its own `express.Router()` at `route`, with its own fresh plugin instances isolated from the host app and other functions.
 - **Static, not live**: no `fs.watch`, no runtime registry, no per-function status/state machine. Enable/disable/add a function by editing `serverbased.json` and restarting the process — an earlier live-filesystem-watch direction was explicitly superseded by this simpler, declarative-config design (see [`drafts/function-registry.task.md`](../drafts/function-registry.task.md)).
