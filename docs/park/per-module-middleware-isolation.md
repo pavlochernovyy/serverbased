@@ -2,6 +2,17 @@
 
 ← [open-items](../state/open-items.md) · relates to [compose.md](../state/compose.md), [core.md](../state/core.md), [router-based-mounting.md](./router-based-mounting.md)
 
+> **Resolved 2026-09-11**, as a side effect of the config-only-composition migration (see
+> [`drafts/config-only-composition.task.md`](../drafts/config-only-composition.task.md)), not by
+> the router-based-mounting fix this doc originally expected. `example/todo-app` and
+> `example/markdown-app` are now each their own config-loaded function with their own
+> function-scoped `middlewares` — `composeModules`/`example/combined-*` (the only place the
+> `todo-app`/`markdown-app` collision below could happen) are deleted. `todo-app`'s
+> `loggingMiddleware` no longer needs the `isPlainObject` guard described below — it now only
+> ever runs on `todo-app`'s own routes, which always send a plain-object body — and the guard was
+> removed accordingly. Kept below as the historical record of the bug and the reasoning; not
+> current behavior.
+
 ## Current situation
 
 `composeModules` (`lib/compose.js`) concatenates every module's `middlewares` array in module

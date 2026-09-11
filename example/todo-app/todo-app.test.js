@@ -1,6 +1,7 @@
 /**
  * @jest-environment node
  */
+const path = require('path');
 const { expect } = require('@jest/globals');
 const axios = require('axios/dist/node/axios.cjs');
 const fetch = (port) =>
@@ -10,20 +11,20 @@ const fetch = (port) =>
   });
 
 const { serverBased } = require('../../lib/server-based');
-const { handlers, middlewares } = require('./index');
 
 const startTodoApp = (port) =>
   serverBased({
     title: 'todo app',
     purpose: 'http api',
     version: '1.0',
-    middlewares,
-    handlers,
+    handlers: [],
+    configPath: path.join(__dirname, 'serverbased.json'),
     runningPort: port,
   }).run();
 
-// todos are held in server-based's per-app state (seeded on first access within each app instance, isolated
-// across the servers started below), and the logging middleware tags every response body with `logs: 'submitted'`.
+// todos are seeded by TodoStorePlugin (functions/plugins/todo-store.plugin.js) — a fresh,
+// pre-populated instance per run() call, isolated across the servers started below — and the
+// logging middleware tags every response body with `logs: 'submitted'`.
 
 test('GET /todo lists the seeded todo', async () => {
   const port = 8401;
@@ -97,4 +98,22 @@ test('DELETE /todo/:todoId removes a todo', async () => {
   expect(response.data.logs).toBe('submitted');
 
   await server.closeAsync();
+});
+
+test('each run() gets its own seeded TodoStorePlugin instance — no state leaks across server instances', async () => {
+  const portOne = 8406;
+  const portTwo = 8407;
+  const serverOne = await startTodoApp(portOne);
+  const serverTwo = await startTodoApp(portTwo);
+
+  await fetch(portOne).post('/todo', { id: 2, title: 't #2', description: 'd #2' });
+
+  const fromServerOne = await fetch(portOne).get('/todo');
+  const fromServerTwo = await fetch(portTwo).get('/todo');
+
+  expect(Object.keys(fromServerOne.data.data)).toEqual(['1', '2']);
+  expect(Object.keys(fromServerTwo.data.data)).toEqual(['1']);
+
+  await serverOne.closeAsync();
+  await serverTwo.closeAsync();
 });

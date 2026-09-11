@@ -378,3 +378,52 @@ same pattern already used elsewhere in the monorepo for standalone folders with 
 `package.json`/`package-lock.json` outside the Lerna glob (e.g. `src/packages/npm-sandbox`).
 Full suite green: 14 suites / 78 tests (unchanged — this only changes where the dependency is
 installed from, not any behavior).
+
+### `example/todo-app`, done (2026-09-11)
+
+- `functions/todo.js` — the 5 CRUD handlers moved as-is, routes trimmed to their leaf form
+  relative to the function's `/todo` mount (`GET /`, `GET /:todoId`, `POST /`, `PUT /`,
+  `DELETE /:todoId`) — same shape the mount prefix already produced (`GET /todo`, `GET
+  /todo/:todoId`, etc.), URLs unchanged. `loggingMiddleware`/`verifyingMiddleware` moved with it,
+  now scoped to this function's mount only, not global.
+- **Seeding via a custom `store` plugin, per this request**: added
+  `functions/plugins/todo-store.plugin.js` — `TodoStorePlugin extends Map`, seeding the `todos`
+  key in its constructor (`super([['todos', new Map([['1', {...}]])]])`). Registered as `{ name:
+  'store', plugin: TodoStorePlugin }` in `functions/todo.js`'s own `plugins`, overriding the
+  framework's default `store` plugin for this function only (same override mechanism
+  `docs/api/server-based.md`'s Plugins section already documents — "supply your own `{ name:
+  'store', plugin: MyStoreClass }` to override it"). Every handler's `context.conductState('todos')
+  || seedTodos()` fallback is gone — `conductState('todos')` always returns the pre-seeded Map now,
+  since seeding happens once at plugin construction (per `run()` call) instead of lazily on first
+  handler access. `context.provideState('todos', todos)` calls kept after each mutation for
+  consistency with the rest of the codebase's idiom (technically redundant — `conductState`/
+  `provideState` operate on the same underlying `Map` reference, no cloning — but every other
+  handler in the codebase that mutates a `conductState`-returned collection re-`provideState`s it
+  afterward, so kept it uniform rather than diverging here).
+- `serverbased.json` — one entry (`todo` → `functions/todo.js`, route `/todo`).
+- `index.js` — collapsed to the thin `configPath`-only shape.
+- `todo-app.test.js` — rewritten to boot via `configPath`; same 5 assertions, same URLs. Added one
+  new test asserting a fresh, independently-seeded `TodoStorePlugin` instance per `run()` call —
+  same pattern `mini-store.test.js` already proves for `CartPlugin`.
+- Docs updated: `docs/state/examples-and-tests.md` (example + test-row descriptions rewritten),
+  `docs/api/README.md`/`docs/api/server-based.md` (moved `todo-app` out of the "single-module
+  usage"/"fuller usage" standalone-`handlers` groupings into the `configPath`/function-registry
+  groupings).
+- Full suite green: 14 suites / 79 tests (one net new test — the plugin-isolation one).
+
+### Follow-up — `isPlainObject` guard removed from `loggingMiddleware` (2026-09-11)
+
+The guard (`const isPlainObject = ...; const data = isPlainObject ? {...} : body;`) existed only
+to survive `todo-app`'s logging middleware running globally across composed modules — specifically
+`markdown-app`'s plain-string response, when both were merged via `composeModules` in
+`example/combined-3-apps` (deleted, see the point #2 resolution above). With `markdown-app` and
+`todo-app` now each their own function with function-scoped `middlewares`, that collision is
+structurally impossible — `loggingMiddleware` only ever sees `todo-app`'s own responses, which are
+always plain objects (`context.provideReply({...}).send()`). Simplified back to the unconditional
+`{ ...body, logs: 'submitted' }`. Updated `docs/park/per-module-middleware-isolation.md` (added a
+resolved-note at the top, kept the historical bug narrative below it as a record — not rewritten)
+and `docs/state/open-items.md` (marked the "Per-module middleware isolation" item
+`[Resolved 2026-09-11]`, noting it was resolved by function-scoping from this migration, not by
+the still-open `router-based-mounting` item, which remains specifically about `composeModules`
+until that's deleted per Decision 2). Full suite green: 14 suites / 79 tests (unchanged — behavior
+identical, just simpler code).

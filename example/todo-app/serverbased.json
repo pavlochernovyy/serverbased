@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "todo": {
+      "path": "./functions/todo.js",
+      "route": "/todo"
+    }
+  }
+}
