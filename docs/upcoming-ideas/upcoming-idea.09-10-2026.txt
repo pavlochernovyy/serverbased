@@ -1,0 +1,51 @@
+Plan to discuss (newest):
+So we have a custom server-based framework ready to be used?
+Let's check it out...
+
+So, as from what I see, we do have a framework, which collects any function files defined by serverbased.json;
+Able to mount on the same app, validate functions named differently in order to do not override them.
+It also proposes a way how to inject plugins, share the context or communicate via network by http lib (fetchJson method) provided.
+
+I think we're ready to do more. How about the api of the simple my personal blog?
+Let's define a few requirements first:
+As a user I would like to write a post using .md file
+I want to place the file under the posts folder by naming it like: "post-<current-date>.md"
+I think we can leverage a file system for now. For example, we can also make a folders for:
+- comments
+- likes
+I think there is no need to make auth for now
+When we do receive a comment to a post, we can write it into a file with the following structure:
+(comment-id-reference) -> (post-id-reference)
+<comment content>
+
+then we can extend this structure to:
+(user-id-reference) -> (comment-id-reference) -> (post-id-reference) -> (user-id-reference)
+<comment-content>
+
+within a comments folder we should structure files to the format we use as standard to posts:
+"comment-<current-date>.md"
+
+This way we can look over the comments per particular date first to display them for users under the post as newest.
+Within a post we have a structure to map comment to post using a simple graph syntax similarly to what neo4j db does.
+
+Regarding likes, we can leverage the comments structure, with only one notion, that likes could be set on a comment to (but not for now; comments can be posted on comments too though, but lately).
+Likes content:
+(like-id-reference) -> (post-id-reference)
+
+hmm, or for a comment, we can use likes already, I guess:
+(like-id-reference) -> (comment-id-reference) -> (post-id-reference)
+
+Then, when there is need to make like for a comment on a comment, structure could look alike:
+(like-id-reference) -> (comment-id-reference) -> (comment-id-reference) -> (post-id-reference)
+
+I think there is no need to provide the whole chain of other likes if there is new like provided, to the comment.
+The chain, of where comment is referencing though, could be beneficial...
+Hmm, I think I've got it.
+We do need to provide a whole chain, but with different syntax for the system to be able to understand, what is actually newest, and what was there already, using syntax like:
+(like-id-reference) -> [comment-id-reference] -> (like-id-reference) -> (comment-id-reference) -> (post-id-reference)
+this way, we explicitly say, the newest like (from the left) is what set to comment in square brackets.
+
+If we follow the rule to provide a full chain to the newest event, we can simplify the code and runtime, to build the proper picture, of how comments, likes supposed to be displayed under the post.
+
+
+

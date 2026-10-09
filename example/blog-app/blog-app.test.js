@@ -1,6 +1,7 @@
 /**
  * @jest-environment node
  */
+const fs = require('fs');
 const path = require('path');
 const { expect } = require('@jest/globals');
 const axios = require('axios/dist/node/axios.cjs');
@@ -11,6 +12,16 @@ const fetch = (port) =>
   });
 
 const { serverBased } = require('../../lib/server-based');
+
+const dataDir = path.join(__dirname, 'data');
+
+// Posts/comments/likes now persist to JSON files on disk (see functions/plugins/*.plugin.js),
+// not just in an in-memory Map per run() call — so, unlike before, state would otherwise leak
+// across tests in this file (they all point at the same ../data/*.json files). Wipe the data
+// dir before every test to keep each test's starting state identical to a fresh first run.
+beforeEach(() => {
+  fs.rmSync(dataDir, { recursive: true, force: true });
+});
 
 const startBlogApp = (port) =>
   serverBased({
@@ -124,20 +135,93 @@ test('a malformed JSON request body is caught and sent as JSON instead of an HTM
   await server.closeAsync();
 });
 
-test('each run() gets its own seeded BlogStorePlugin instance — no state leaks across server instances', async () => {
+test('posts persist across a restart — a second run() picks up what the first one wrote', async () => {
   const portOne = 8208;
   const portTwo = 8209;
   const serverOne = await startBlogApp(portOne);
-  const serverTwo = await startBlogApp(portTwo);
 
   await fetch(portOne).post('/posts', { title: 'second post', body: 'more blog', author: 'pavlo' });
+  await serverOne.closeAsync();
 
-  const fromServerOne = await fetch(portOne).get('/posts');
+  const serverTwo = await startBlogApp(portTwo);
   const fromServerTwo = await fetch(portTwo).get('/posts');
 
-  expect(Object.keys(fromServerOne.data.data)).toEqual(['1', '2']);
-  expect(Object.keys(fromServerTwo.data.data)).toEqual(['1']);
+  expect(Object.keys(fromServerTwo.data.data)).toEqual(['1', '2']);
 
-  await serverOne.closeAsync();
   await serverTwo.closeAsync();
+});
+
+test('POST /posts/:postId/comments creates a comment referencing its post, 404s for a missing post', async () => {
+  const port = 8210;
+  const server = await startBlogApp(port);
+
+  const created = await fetch(port).post('/posts/1/comments', { body: 'nice post!', author: 'anon' });
+  expect(created.status).toBe(201);
+  expect(created.data).toEqual({
+    message: 'comment created',
+    data: { commentId: 'c1', postId: '1', body: 'nice post!', author: 'anon', createdAt: expect.any(String) },
+  });
+
+  const missingPost = await fetch(port).post('/posts/999/comments', { body: 'nope' });
+  expect(missingPost.status).toBe(404);
+
+  const listed = await fetch(port).get('/posts/1/comments');
+  expect(listed.data.data).toEqual([expect.objectContaining({ commentId: 'c1', postId: '1' })]);
+
+  await server.closeAsync();
+});
+
+test('comments persist across a restart', async () => {
+  const portOne = 8211;
+  const portTwo = 8212;
+  const serverOne = await startBlogApp(portOne);
+
+  await fetch(portOne).post('/posts/1/comments', { body: 'persisted comment', author: 'pavlo' });
+  await serverOne.closeAsync();
+
+  const serverTwo = await startBlogApp(portTwo);
+  const listed = await fetch(portTwo).get('/posts/1/comments');
+
+  expect(listed.data.data).toEqual([expect.objectContaining({ body: 'persisted comment' })]);
+
+  await serverTwo.closeAsync();
+});
+
+test('POST /posts/:postId/likes likes a post; GET lists only post-level likes, not comment likes', async () => {
+  const port = 8213;
+  const server = await startBlogApp(port);
+
+  const liked = await fetch(port).post('/posts/1/likes');
+  expect(liked.status).toBe(201);
+  expect(liked.data).toEqual({
+    message: 'post liked',
+    data: { likeId: 'l1', postId: '1', commentId: null, createdAt: expect.any(String) },
+  });
+
+  await fetch(port).post('/posts/1/comments', { body: 'a comment' });
+  await fetch(port).post('/posts/1/comments/c1/likes');
+
+  const listed = await fetch(port).get('/posts/1/likes');
+  expect(listed.data.data).toEqual([expect.objectContaining({ likeId: 'l1', commentId: null })]);
+
+  await server.closeAsync();
+});
+
+test('POST /posts/:postId/comments/:commentId/likes likes a comment, 404s for a missing comment', async () => {
+  const port = 8214;
+  const server = await startBlogApp(port);
+
+  await fetch(port).post('/posts/1/comments', { body: 'a comment' });
+
+  const liked = await fetch(port).post('/posts/1/comments/c1/likes');
+  expect(liked.status).toBe(201);
+  expect(liked.data.data).toMatchObject({ postId: '1', commentId: 'c1' });
+
+  const missing = await fetch(port).post('/posts/1/comments/c999/likes');
+  expect(missing.status).toBe(404);
+
+  const listed = await fetch(port).get('/posts/1/comments/c1/likes');
+  expect(listed.data.data).toEqual([expect.objectContaining({ commentId: 'c1' })]);
+
+  await server.closeAsync();
 });

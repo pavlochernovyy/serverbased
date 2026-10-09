@@ -20,6 +20,7 @@ const handlerGetSummary = {
     context.provideState('summaryRequests', summaryRequests);
 
     const req = context.fetchRequest();
+    // the host is the same, what they do, they refer to it and ask to get a resource by the entries path...
     const { data: entries } = await fetchJson(`${req.protocol}://${req.get('host')}/entries`);
 
     const totalDurationMs = entries.reduce((sum, entry) => sum + (entry.durationMs || 0), 0);

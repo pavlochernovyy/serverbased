@@ -1,6 +1,8 @@
 const { ProjectsStorePlugin } = require('./plugins/projects-store.plugin');
 
 // A function loaded via serverbased.json (see ../serverbased.json), mounted at /projects.
+// ohh, they do share same context being in the same app..., but still able to communicate via http with each other?..
+
 // Overrides the default "store" plugin with ProjectsStorePlugin
 // (functions/plugins/projects-store.plugin.js) — no per-handler seedProjects() fallback needed.
 const handlerListProjects = {
