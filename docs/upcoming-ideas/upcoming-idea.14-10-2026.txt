@@ -1,0 +1,10 @@
+Plan to discuss (newest):
+
+Okay, do we have the persistent state already created?..
+yes, it seems like we do...
+I think we need to sync all ids to the data provided though...
+So, we do have tests for the api layer covered
+And also, we can separate the functions to simplify their usage
+
+I think we do have to have "p1" id as we do for the rest of entities. It should not be marked as the only Number though...
+So what we were doing here today?..

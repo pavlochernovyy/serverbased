@@ -14,14 +14,23 @@ middleware. No auth. Unlike the other `example/*` apps, storage here is **JSON-f
 example/blog-app/
   serverbased.json              # lists the "blog" function → functions/blog.js, route /posts
   functions/
-    blog.js                     # 11 handlers (posts CRUD + comments + likes), loggingMiddleware,
-                                 # three named plugins: postsStore, commentsStore, likesStore
+    blog.js                     # the registered function: combines the handler modules below,
+                                 # loggingMiddleware, three named plugins: postsStore,
+                                 # commentsStore, likesStore
+    blog/
+      posts.handlers.js         # posts CRUD (5 handlers), cascading delete
+      comments.handlers.js      # list/create comments (2 handlers)
+      likes.handlers.js         # like/list for posts and comments (4 handlers)
+      relations.js              # read-side helpers: commentsOf, postLikesOf, commentLikesOf,
+                                 # findCommentOfPost
     plugins/
-      blog-store.plugin.js      # PostsStorePlugin — JSON-backed, seeds post "1" on first run
-      comment-store.plugin.js   # CommentsStorePlugin — JSON-backed, empty on first run
-      like-store.plugin.js      # LikesStorePlugin — JSON-backed, empty on first run
-  data/                         # gitignored — posts.json/comments.json/likes.json, created at
-                                 # runtime by the three plugins above
+      seeds.js                  # seed entries for all three stores, ids/counts kept in sync
+      blog-store.plugin.js      # PostsStorePlugin — JSON-backed, seeds post "p1"
+      comment-store.plugin.js   # CommentsStorePlugin — JSON-backed, seeds comment "c1"
+      like-store.plugin.js      # LikesStorePlugin — JSON-backed, seeds likes "l1" (post), "l2" (c1)
+  data/                         # gitignored — postsStore/commentsStore/likesStore.json, created
+                                 # at runtime by the three plugins above (always next to
+                                 # serverbased.json, file named after the plugin)
   index.js                      # thin entrypoint: serverBased({ configPath }).run()
   blog-app.test.js
 ```
@@ -35,33 +44,42 @@ landed later and is unrelated to that migration.
 
 | Method | Route                                     | Behavior                                              |
 |--------|--------------------------------------------|--------------------------------------------------------|
-| GET    | `/posts`                                   | list all posts                                          |
-| GET    | `/posts/:postId`                           | fetch one post (and increment its view count), `404` if missing |
+| GET    | `/posts`                                   | list all posts (with `commentsCount`/`likesCount`, no related entities) |
+| GET    | `/posts/:postId`                           | fetch one post with `comments` (each with its `likes`) and post-level `likes`, increment its view count, `404` if missing |
 | POST   | `/posts`                                    | create a post, `400` if `title`/`body` missing, `201` on success |
 | PUT    | `/posts/:postId`                           | partial update, `404` if missing, keeps `createdAt` and `views` |
-| DELETE | `/posts/:postId`                           | delete, `404` if missing                                  |
+| DELETE | `/posts/:postId`                           | delete, cascading to the post's comments and likes, `404` if missing |
 | GET    | `/posts/:postId/comments`                  | list comments on a post, `404` if post missing |
-| POST   | `/posts/:postId/comments`                  | create a comment, `400` if `body` missing, `404` if post missing, `201` on success |
-| POST   | `/posts/:postId/likes`                     | like a post, `404` if post missing, `201` on success |
-| GET    | `/posts/:postId/likes`                     | list likes on a post (post-level only, not comment likes) |
-| POST   | `/posts/:postId/comments/:commentId/likes` | like a comment, `404` if comment missing, `201` on success |
-| GET    | `/posts/:postId/comments/:commentId/likes` | list likes on a comment |
+| POST   | `/posts/:postId/comments`                  | create a comment, bump the post's `commentsCount`, `400` if `body` missing, `404` if post missing, `201` on success |
+| POST   | `/posts/:postId/likes`                     | like a post, bump its `likesCount`, `404` if post missing, `201` on success |
+| GET    | `/posts/:postId/likes`                     | list likes on a post (post-level only, not comment likes), `404` if post missing |
+| POST   | `/posts/:postId/comments/:commentId/likes` | like a comment, bump its `likesCount`, `404` if comment missing or not on that post, `201` on success |
+| GET    | `/posts/:postId/comments/:commentId/likes` | list likes on a comment, `404` if comment missing or not on that post |
+
+Related entities are validated at **creation** time (a comment/like can only be created against
+an existing post/comment), so reading them back is just a filter per store — no read-side checks.
+`commentsCount`/`likesCount` (post) and `likesCount` (comment) are denormalized onto the parent at
+creation time, so a client can see how much is related without calling the list endpoints; a
+post's `likesCount` counts post-level likes only, not likes on its comments.
 
 ## Storage
 
 Three named plugins, each a thin wrapper around `lib/plugins/json-store.plugin.js`
-(`createJsonStorePlugin(name, filePath, seedEntries?)`) — a reusable helper added for this
-example, generic enough for any `server-based` app that wants JSON-file persistence:
+(`createJsonStorePlugin(name, seedEntries?)`) — a reusable helper added for this
+example, generic enough for any `server-based` app that wants JSON-file persistence. No paths in
+app code: the file is always `data/<name>.json` next to `serverbased.json`.
 
-- `postsStore` (`PostsStorePlugin`, `functions/plugins/blog-store.plugin.js`) → `data/posts.json`,
-  seeded with one post on first run.
+- `postsStore` (`PostsStorePlugin`, `functions/plugins/blog-store.plugin.js`) → `data/postsStore.json`.
 - `commentsStore` (`CommentsStorePlugin`, `functions/plugins/comment-store.plugin.js`) →
-  `data/comments.json`, empty on first run.
+  `data/commentsStore.json`.
 - `likesStore` (`LikesStorePlugin`, `functions/plugins/like-store.plugin.js`) →
-  `data/likes.json`, empty on first run.
+  `data/likesStore.json`.
 
-Each is a `Map` subclass: loads its JSON file into the `Map` at construction (falling back to
-seed entries only when the file doesn't exist yet), then re-serializes the *whole* collection to
+All three seed from `functions/plugins/seeds.js` — post `p1`, comment `c1` on it, post-level like
+`l1` and comment like `l2` — kept in one file so the ids they reference and the counts on the
+parents stay consistent. Each is a `Map` subclass: loads its JSON file into the `Map` at
+construction (falling back to its seed entries when the file doesn't exist yet or is empty —
+seeding is per collection, so emptying only one file re-seeds only that one), then re-serializes the *whole* collection to
 disk on every `set`/`delete` (write-through, not batched — simplest "never lose a write" option,
 fine at this scale). Handlers read/write these directly (`context.postsStore.get(...)`, etc.) —
 **not** through `provideState`/`conductState`, which are hard-wired to a single plugin literally
@@ -78,9 +96,11 @@ Posts also used to live nested one level inside a `store` Map (`store.get('posts
 `Map`) — that broke under `JSON.stringify` (a `Map` nested inside another `Map`'s values
 serializes to `{}`), which is why `postsStore` itself is now the flat posts-by-id collection.
 
-Post ids are `postsStore.size + 1` as a string (same for comment ids `c${commentsStore.size + 1}`
-and like ids `l${likesStore.size + 1}`), computed inline — fine for a linear demo, breaks under
-concurrent creates or after any delete (id reuse/collision); see "Gaps" below.
+Ids come from `store.nextId(prefix)` (`lib/plugins/json-store.plugin.js`) — the highest existing
+id + 1 (`'p2'`, `'c2'`, `'l3'`, ...) — every entity id carries its prefix (`p`/`c`/`l`), none is a bare number, derived from the stored data so it never collides with an
+id still in use after a delete or a restart. Deleting the highest post id frees it for reuse, so
+`DELETE /posts/:postId` cascades to that post's comments and likes — a recreated post never
+inherits the old one's relatives.
 
 All endpoints covered by `blog-app.test.js`, including persistence-across-restart for posts and
 comments (start a server, write, `closeAsync()`, start a fresh server against the same `data/`
@@ -96,7 +116,7 @@ files, confirm the write is still there).
 - Multiple named plugins per function (`postsStore`/`commentsStore`/`likesStore`) — the plugin
   system isn't limited to one `store`-named override; a function can carry as many independent
   named stores as it needs, each reachable as `context.<name>`.
-- `lib/plugins/json-store.plugin.js` — a generic, reusable `createJsonStorePlugin(name, filePath,
+- `lib/plugins/json-store.plugin.js` — a generic, reusable `createJsonStorePlugin(name,
   seedEntries?)` factory; writing three JSON-backed collections for this app was a one-liner each.
 - `runtimeErrorHandlingMiddleware` — malformed JSON bodies and thrown/rejected errors from
   `context` handlers get a shaped JSON error response, not an HTML stack trace (see
@@ -132,13 +152,14 @@ files, confirm the write is still there).
    slug-based routes, which is purely an app-level decision today (framework has no opinion either
    way — this may be fine, but worth naming explicitly given the "framework" ambition).
 
-6. **No id-collision safety under concurrent writes.** `${store.size + 1}` for posts/comments/
-   likes breaks under concurrent creates or after any delete (id reuse/collision) — acceptable for
-   a single-request-at-a-time demo, not for anything real.
+6. **[Partly addressed 2026-10-14] Id collisions.** Was `${store.size + 1}`, colliding after any
+   delete. Now `nextId(prefix)` derives ids from the stored data and post deletes cascade, so
+   deletes are safe. Still no safety under concurrent creates across processes — fine for a
+   single-process demo (handlers are synchronous, so one process never interleaves two creates).
 
-7. **No delete/edit for comments or likes.** Only posts support `PUT`/`DELETE`; comments and likes
-   are append-only in this pass (matches the "flat FK, no chain syntax" simplification — deleting a
-   comment would also orphan any likes referencing it, which this app doesn't address).
+7. **No delete/edit for comments or likes.** Only posts support `PUT`/`DELETE` (post delete
+   cascades to its comments/likes); comments and likes are append-only in this pass. Adding a
+   comment/like delete would also need to decrement the denormalized counts on its parent.
 
 ## Deliberately out of scope for this pass
 

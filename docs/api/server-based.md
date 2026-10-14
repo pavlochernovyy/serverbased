@@ -141,7 +141,7 @@ Per-handler middleware follows the same `(req, res, next)` shape, wrapped in `{ 
 
 ## Plugins
 
-A function module's own `plugins` is an array of `{ name, plugin }` descriptors, where `plugin` is a **class**, not an instance — `run()` instantiates every plugin fresh on each call (`new plugin()`), so separate app instances (different apps, or different test servers started from the same config) never share plugin state, and each function's plugin instances are isolated from every other function's. Each instance is exposed on every `context`-type handler's `ContextProvider` under `name`, see [context-provider.md](./context-provider.md#plugins):
+A function module's own `plugins` is an array of `{ name, plugin }` descriptors, where `plugin` is a **class**, not an instance — `run()` instantiates every plugin fresh on each call (`new plugin({ dataDir })`, see below), so separate app instances (different apps, or different test servers started from the same config) never share plugin state, and each function's plugin instances are isolated from every other function's. Each instance is exposed on every `context`-type handler's `ContextProvider` under `name`, see [context-provider.md](./context-provider.md#plugins):
 
 ```js
 // functions/greet.js
@@ -166,7 +166,9 @@ module.exports = { handlers: [handlerGreet], plugins: [{ name: 'greeter', plugin
 
 Throws `FunctionRegistryError` if two plugin descriptors within the same function share the same `name`, or `ServerBasedError` if a descriptor is missing `name`/`plugin` (validated by `toPlugin`, see above).
 
-A default plugin named `store` (a plain `Map`, see `lib/plugins/state-store.plugin.js`) is auto-appended when no `store`-named plugin is supplied — this is what backs `context.provideState`/`conductState` (see [context-provider.md](./context-provider.md#state-providestateconductstate)). Supply your own `{ name: 'store', plugin: MyStoreClass }` to override it — see `example/todo-app` for a function seeding its own initial state this way. A plugin's `name` need not be `store` at all — a function can register several independently-named plugins; see [context-provider.md#custom-persistence](./context-provider.md#custom-persistence-libpluginsjson-storepluginjs) and `example/blog-app` (`postsStore`/`commentsStore`/`likesStore`, three JSON-file-backed plugins on one function, none named `store`).
+Every plugin is constructed by `run()` as `new Plugin({ dataDir })`, where `dataDir` is always the `data` folder next to `serverbased.json` (not configurable). Plugins that persist to disk (`lib/plugins/json-store.plugin.js`) keep their files there; others just ignore the argument.
+
+A default plugin named `store` (a `Map` subclass that ignores the `{ dataDir }` argument, see `lib/plugins/state-store.plugin.js`) is auto-appended when no `store`-named plugin is supplied — this is what backs `context.provideState`/`conductState` (see [context-provider.md](./context-provider.md#state-providestateconductstate)). Supply your own `{ name: 'store', plugin: MyStoreClass }` to override it — see `example/todo-app` for a function seeding its own initial state this way. A plugin's `name` need not be `store` at all — a function can register several independently-named plugins; see [context-provider.md#custom-persistence](./context-provider.md#custom-persistence-libpluginsjson-storepluginjs) and `example/blog-app` (`postsStore`/`commentsStore`/`likesStore`, three JSON-file-backed plugins on one function, none named `store`).
 
 ## Operating without a context (`handlerType: 'origin'`)
 

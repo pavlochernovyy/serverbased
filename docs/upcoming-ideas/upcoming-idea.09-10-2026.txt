@@ -1,4 +1,4 @@
-Plan to discuss (newest):
+Plan to discuss (obsolete):
 So we have a custom server-based framework ready to be used?
 Let's check it out...
 
@@ -46,6 +46,3 @@ We do need to provide a whole chain, but with different syntax for the system to
 this way, we explicitly say, the newest like (from the left) is what set to comment in square brackets.
 
 If we follow the rule to provide a full chain to the newest event, we can simplify the code and runtime, to build the proper picture, of how comments, likes supposed to be displayed under the post.
-
-
-

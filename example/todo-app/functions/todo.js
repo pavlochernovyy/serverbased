@@ -88,12 +88,6 @@ const loggingMiddleware = {
   },
 };
 
-// we also are able to inject a middleware within a function context
-// does the function context means to be a single app?
-// what happens if we have couple functions in files defined?
-// would we have couple apps instantiated?
-// or would they share the same context rather?
-// good question, I guess...
 const verifyingMiddleware = {
   run(req, res, next) {
     console.log('in verifying middleware', req.body);

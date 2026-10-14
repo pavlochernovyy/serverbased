@@ -51,7 +51,5 @@ const handlerListEntries = {
 
 module.exports = {
   handlers: [handlerStartEntry, handlerStopEntry, handlerListEntries],
-  // ohh, we can provide different plugins even though...
-  // which is cool of course!..
   plugins: [{ name: 'store', plugin: EntriesStorePlugin }],
 };

@@ -65,7 +65,7 @@ There's no built-in seeding on the default `store` — reading a key that was ne
   }
   ```
 
-- **A real starting value to seed** — supply your own `store` plugin whose constructor pre-populates the key, so every handler can call `conductState(key)` directly without a fallback (see `example/todo-app`'s `TodoStorePlugin`/`example/blog-app`'s `BlogStorePlugin`, `functions/plugins/*.plugin.js`):
+- **A real starting value to seed** — supply your own `store` plugin whose constructor pre-populates the key, so every handler can call `conductState(key)` directly without a fallback (see `example/todo-app`'s `TodoStorePlugin`, `functions/plugins/todo-store.plugin.js`):
 
   ```js
   class PostsStorePlugin extends Map {
@@ -93,23 +93,34 @@ It's a generic in-memory scratch store, not a persistence layer — nothing surv
 independent named collection — writes its own plugin instead and reaches it directly as
 `context.<name>`, bypassing `provideState`/`conductState` entirely.
 
-`createJsonStorePlugin(name, filePath, seedEntries?)` is a reusable helper for exactly that case:
+`createJsonStorePlugin(name, seedEntries?)` is a reusable helper for exactly that case:
 it returns a `{ name, plugin }` descriptor (same shape any plugin descriptor takes) whose
-`plugin` is a `Map` subclass that loads `filePath` at construction (falling back to
-`seedEntries` only when the file doesn't exist yet) and re-serializes the whole collection to
-`filePath` on every `set`/`delete` — write-through, not batched, so no write is ever lost at the
-cost of rewriting the full file each time (fine at example-app scale).
+`plugin` is a `Map` subclass persisted to **`<dataDir>/<name>.json`**. Neither part is
+configurable: `dataDir` is always the `data` folder next to `serverbased.json` (`run()` passes it
+to every plugin as `new Plugin({ dataDir })`, see [server-based.md](./server-based.md#plugins)),
+and the file is named after the plugin by convention. It loads that file at construction
+(falling back to `seedEntries` when the file doesn't exist yet or holds an empty collection —
+the folder and file are created as needed) and re-serializes the whole collection to it on every
+`set`/`delete` — write-through, not batched, so no write is ever lost at the cost of rewriting
+the full file each time (fine at example-app scale).
+
+It also adds `nextId(prefix = '')`: the highest numeric suffix among existing keys with that
+prefix, plus one (`'c1'`, `'c5'` → `nextId('c')` is `'c6'`). Ids derived from the stored data
+rather than `size + 1`, so an id still in use is never handed out again after a delete. Deleting
+the *highest* id does free it for reuse — anything referencing it should be removed with it (see
+`example/blog-app`'s cascading post delete).
 
 ```js
 const { createJsonStorePlugin } = require('../../../lib/plugins/json-store.plugin');
 
-const PostsStorePlugin = createJsonStorePlugin('postsStore', path.join(__dirname, '../data/posts.json'), [
-  ['1', { title: 'first post' }],
-]).plugin;
+// persisted to <dir of serverbased.json>/data/postsStore.json
+const PostsStorePlugin = createJsonStorePlugin('postsStore', [['p1', { title: 'first post' }]]).plugin;
 
 // module.exports = { handlers: [...], plugins: [{ name: 'postsStore', plugin: PostsStorePlugin }] };
 
 run(context) {
+  const postId = context.postsStore.nextId('p'); // 'p2'
+  context.postsStore.set(postId, { title: 'new post' });
   context.provideReply({ data: Object.fromEntries(context.postsStore) }).send();
 }
 ```
